@@ -3,7 +3,6 @@ import { ReceiptText, Plus } from 'lucide-react'
 import { useAppData } from '../context/AppData'
 import { ExpenseRow } from '../components/ExpenseRow'
 import { Button, Card, EmptyState, Field, Input, Modal, SectionTitle, Select } from '../components/ui'
-import { dbApi } from '../lib/db'
 import { cx, fmtDay, fmtMoney, fmtMonth, todayISO } from '../lib/format'
 import { CATEGORIES } from '../lib/categories'
 import { currentYm } from '../lib/stats'
@@ -27,7 +26,7 @@ function emptyForm(ym: string): FormState {
 }
 
 export function TransactionsView({ ym }: { ym: string }) {
-  const { expenses, currency } = useAppData()
+  const { expenses, currency, api } = useAppData()
   const [form, setForm] = useState<FormState>(() => emptyForm(ym))
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Expense | null>(null)
@@ -56,7 +55,7 @@ export function TransactionsView({ ym }: { ym: string }) {
     if (!form.date) return setError('Pick a date.')
     setSaving(true)
     try {
-      await dbApi.addExpense({
+      await api.addExpense({
         amount,
         category: form.category,
         date: form.date,
@@ -79,7 +78,7 @@ export function TransactionsView({ ym }: { ym: string }) {
     if (!form.date) return setError('Pick a date.')
     setSaving(true)
     try {
-      await dbApi.updateExpense(editing.id, {
+      await api.updateExpense(editing.id, {
         amount,
         category: form.category,
         date: form.date,
@@ -96,7 +95,7 @@ export function TransactionsView({ ym }: { ym: string }) {
   async function handleDelete(expense: Expense) {
     if (!window.confirm(`Delete "${expense.note || expense.category}"?`)) return
     try {
-      await dbApi.deleteExpense(expense.id)
+      await api.deleteExpense(expense.id)
     } catch {
       window.alert('Could not delete. Check your database rules and connection.')
     }

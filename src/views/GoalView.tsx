@@ -2,12 +2,11 @@ import { useEffect, useState } from 'react'
 import { CalendarClock, CheckCircle2, PiggyBank, Sparkles, Target, TrendingUp, TriangleAlert } from 'lucide-react'
 import { useAppData } from '../context/AppData'
 import { Button, Card, EmptyState, Field, Input, ProgressBar, SectionTitle } from '../components/ui'
-import { dbApi } from '../lib/db'
 import { cx, fmtMoney, fmtMonth, todayISO } from '../lib/format'
 import { monthlyCapacity, projectGoal } from '../lib/stats'
 
 export function GoalView({ ym }: { ym: string }) {
-  const { goal, expenses, incomes, liabilities, currency } = useAppData()
+  const { goal, expenses, incomes, liabilities, currency, api } = useAppData()
 
   const [title, setTitle] = useState('')
   const [target, setTarget] = useState('')
@@ -44,7 +43,7 @@ export function GoalView({ ym }: { ym: string }) {
     if (savedNum < 0) return setError('Saved amount cannot be negative.')
     setSaving(true)
     try {
-      await dbApi.saveGoal({
+      await api.saveGoal({
         title: title.trim() || undefined,
         targetAmount: targetNum,
         savedAmount: savedNum,
@@ -61,7 +60,7 @@ export function GoalView({ ym }: { ym: string }) {
     const amt = Number.parseFloat(contribution)
     if (!isFinite(amt) || amt === 0) return
     try {
-      await dbApi.saveGoal({ savedAmount: Math.max(0, savedNum + amt), targetAmount: targetNum })
+      await api.saveGoal({ savedAmount: Math.max(0, savedNum + amt), targetAmount: targetNum })
       setContribution('')
     } catch {
       window.alert('Could not add contribution. Check your database rules.')

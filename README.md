@@ -6,6 +6,8 @@ to reach based on your average monthly surplus.
 
 ## Features
 
+- **Authentication** — Google one-tap sign-in plus email/password registration via
+  Firebase Auth; every account gets an isolated data folder (`users/{uid}/…`)
 - **Dashboard** — income, expenses, bills and net savings for any month, plus category
   breakdown (donut), 6-month trend chart and recent transactions
 - **Daily expenses** — log, edit and delete expenses with categories, dates and notes,
@@ -41,30 +43,40 @@ npm run build    # typecheck + production build into dist/
 
 ## Firebase setup
 
-Create a Realtime Database and allow read/write in **Realtime Database → Rules**:
+1. **Enable Authentication** — Firebase Console → **Authentication → Sign-in method**:
+   enable **Google** and **Email/Password**.
+2. **Authorize your domains** — Authentication → **Settings → Authorized domains**:
+   add `localhost` (usually pre-added) and your Render domain, e.g.
+   `monthly-expense-tracker-7sbi.onrender.com`. Google sign-in fails with
+   `auth/unauthorized-domain` without this.
+3. **Lock the database** — Realtime Database → **Rules**:
 
 ```json
 {
   "rules": {
-    ".read": true,
-    ".write": true
+    "users": {
+      "$uid": {
+        ".read": "auth !== null && auth.uid === $uid",
+        ".write": "auth !== null && auth.uid === $uid"
+      }
+    }
   }
 }
 ```
 
-> ⚠️ These rules are open on purpose for a personal/demo app. Lock them down with
-> Firebase Authentication before storing anything sensitive.
+Each signed-in user can only read/write their own `users/{uid}/…` subtree.
 
 Update `src/firebase.ts` with your own project config if you fork this.
 
 ## Data model (RTDB)
 
 ```
-expenses/{pushId}          { date, amount, category, note?, createdAt }
-incomes/{YYYY-MM}          { amount, updatedAt }
-liabilities/{YYYY-MM}/{id} { name, amount, paid }
-goal/current               { title?, targetAmount, savedAmount, targetDate? }
-settings/currency          "USD"
+users/{uid}
+├── expenses/{pushId}          { date, amount, category, note?, createdAt }
+├── incomes/{YYYY-MM}          { amount, updatedAt }
+├── liabilities/{YYYY-MM}/{id} { name, amount, paid }
+├── goal/current               { title?, targetAmount, savedAmount, targetDate? }
+└── settings/currency          "USD"
 ```
 
 ## Deployment

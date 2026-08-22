@@ -11,12 +11,11 @@ import {
 } from 'lucide-react'
 import { useAppData } from '../context/AppData'
 import { Button, Card, EmptyState, Field, Input, SectionTitle } from '../components/ui'
-import { dbApi } from '../lib/db'
 import { cx, fmtMoney, fmtMonth } from '../lib/format'
 import { addMonths, summarizeMonth } from '../lib/stats'
 
 function IncomeCard({ ym }: { ym: string }) {
-  const { incomes, currency } = useAppData()
+  const { incomes, currency, api } = useAppData()
   const current = incomes[ym]?.amount ?? null
   const [value, setValue] = useState(current != null ? String(current) : '')
   const [saving, setSaving] = useState(false)
@@ -34,7 +33,7 @@ function IncomeCard({ ym }: { ym: string }) {
     if (!isFinite(amount) || amount < 0) return
     setSaving(true)
     try {
-      await dbApi.setIncome(ym, amount)
+      await api.setIncome(ym, amount)
       setSavedAt(Date.now())
       setTimeout(() => setSavedAt(0), 2000)
     } catch {
@@ -74,7 +73,7 @@ function IncomeCard({ ym }: { ym: string }) {
 }
 
 export function MonthlyView({ ym }: { ym: string }) {
-  const { liabilities, expenses, incomes, currency } = useAppData()
+  const { liabilities, expenses, incomes, currency, api } = useAppData()
   const monthItems = Object.entries(liabilities[ym] ?? {}).map(([id, l]) => ({ ...l, id }))
   monthItems.sort((a, b) => a.name.localeCompare(b.name))
 
@@ -97,7 +96,7 @@ export function MonthlyView({ ym }: { ym: string }) {
     if (!name.trim()) return setError('Give the bill a name.')
     if (!isFinite(amt) || amt <= 0) return setError('Enter an amount greater than zero.')
     try {
-      await dbApi.addLiability(ym, name.trim(), amt)
+      await api.addLiability(ym, name.trim(), amt)
       setName('')
       setAmount('')
     } catch {
@@ -110,7 +109,7 @@ export function MonthlyView({ ym }: { ym: string }) {
       return
     try {
       await Promise.all(
-        Object.values(prevItems).map((l) => dbApi.addLiability(ym, l.name, l.amount)),
+        Object.values(prevItems).map((l) => api.addLiability(ym, l.name, l.amount)),
       )
     } catch {
       window.alert('Could not copy bills. Check your database rules and connection.')
@@ -186,7 +185,7 @@ export function MonthlyView({ ym }: { ym: string }) {
             monthItems.map((l) => (
               <div key={l.id} className="group flex items-center gap-3 px-4 py-3">
                 <button
-                  onClick={() => dbApi.setLiabilityPaid(ym, l.id, !l.paid).catch(() => window.alert('Update failed.'))}
+                  onClick={() => api.setLiabilityPaid(ym, l.id, !l.paid).catch(() => window.alert('Update failed.'))}
                   aria-label={l.paid ? `Mark ${l.name} unpaid` : `Mark ${l.name} paid`}
                   className={cx(
                     'shrink-0 transition',
@@ -216,7 +215,7 @@ export function MonthlyView({ ym }: { ym: string }) {
                 <button
                   onClick={() => {
                     if (window.confirm(`Delete "${l.name}"?`)) {
-                      dbApi.deleteLiability(ym, l.id).catch(() =>
+                      api.deleteLiability(ym, l.id).catch(() =>
                         window.alert('Could not delete. Check your database rules.'),
                       )
                     }
