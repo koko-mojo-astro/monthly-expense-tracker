@@ -4,46 +4,63 @@ import type { Expense, Goal } from './types'
 
 type ExpenseDraft = Omit<Expense, 'id'>
 
-export const dbApi = {
-  addExpense(e: ExpenseDraft): Promise<string | null> {
-    return push(ref(db, 'expenses'), { ...e, createdAt: Date.now() }).then((r) => r.key)
-  },
-  updateExpense(id: string, patch: Partial<ExpenseDraft>): Promise<void> {
-    return update(ref(db, `expenses/${id}`), patch)
-  },
-  deleteExpense(id: string): Promise<void> {
-    return remove(ref(db, `expenses/${id}`))
-  },
+export interface DbApi {
+  addExpense(e: ExpenseDraft): Promise<string | null>
+  updateExpense(id: string, patch: Partial<ExpenseDraft>): Promise<void>
+  deleteExpense(id: string): Promise<void>
+  setIncome(ym: string, amount: number): Promise<void>
+  addLiability(ym: string, name: string, amount: number): Promise<string | null>
+  setLiabilityPaid(ym: string, id: string, paid: boolean): Promise<void>
+  deleteLiability(ym: string, id: string): Promise<void>
+  saveGoal(patch: Partial<Omit<Goal, 'createdAt'>>): Promise<void>
+  saveCurrency(currency: string): Promise<void>
+  wipeAll(): Promise<void>
+}
 
-  setIncome(ym: string, amount: number): Promise<void> {
-    return set(ref(db, `incomes/${ym}`), { amount, updatedAt: Date.now() })
-  },
+/**
+ * All data lives under `users/{uid}/…` so the database rules can enforce
+ * strict per-user isolation.
+ */
+export function createDbApi(uid: string): DbApi {
+  const root = `users/${uid}`
 
-  addLiability(ym: string, name: string, amount: number): Promise<string | null> {
-    return push(ref(db, `liabilities/${ym}`), { name, amount, paid: false }).then((r) => r.key)
-  },
-  copyLiabilities(fromYm: string, toYm: string): Promise<void> {
-    // Handled by caller reading the local cache; kept for symmetry.
-    void fromYm
-    void toYm
-    return Promise.resolve()
-  },
-  setLiabilityPaid(ym: string, id: string, paid: boolean): Promise<void> {
-    return update(ref(db, `liabilities/${ym}/${id}`), { paid })
-  },
-  deleteLiability(ym: string, id: string): Promise<void> {
-    return remove(ref(db, `liabilities/${ym}/${id}`))
-  },
+  return {
+    addExpense(e: ExpenseDraft): Promise<string | null> {
+      return push(ref(db, `${root}/expenses`), { ...e, createdAt: Date.now() }).then((r) => r.key)
+    },
+    updateExpense(id: string, patch: Partial<ExpenseDraft>): Promise<void> {
+      return update(ref(db, `${root}/expenses/${id}`), patch)
+    },
+    deleteExpense(id: string): Promise<void> {
+      return remove(ref(db, `${root}/expenses/${id}`))
+    },
 
-  saveGoal(patch: Partial<Omit<Goal, 'createdAt'>>): Promise<void> {
-    return update(ref(db, 'goal/current'), { ...patch, updatedAt: Date.now() })
-  },
+    setIncome(ym: string, amount: number): Promise<void> {
+      return set(ref(db, `${root}/incomes/${ym}`), { amount, updatedAt: Date.now() })
+    },
 
-  saveCurrency(currency: string): Promise<void> {
-    return set(ref(db, 'settings/currency'), currency)
-  },
+    addLiability(ym: string, name: string, amount: number): Promise<string | null> {
+      return push(ref(db, `${root}/liabilities/${ym}`), { name, amount, paid: false }).then(
+        (r) => r.key,
+      )
+    },
+    setLiabilityPaid(ym: string, id: string, paid: boolean): Promise<void> {
+      return update(ref(db, `${root}/liabilities/${ym}/${id}`), { paid })
+    },
+    deleteLiability(ym: string, id: string): Promise<void> {
+      return remove(ref(db, `${root}/liabilities/${ym}/${id}`))
+    },
 
-  wipeAll(): Promise<void> {
-    return remove(ref(db, '/'))
-  },
+    saveGoal(patch: Partial<Omit<Goal, 'createdAt'>>): Promise<void> {
+      return update(ref(db, `${root}/goal/current`), { ...patch, updatedAt: Date.now() })
+    },
+
+    saveCurrency(currency: string): Promise<void> {
+      return set(ref(db, `${root}/settings/currency`), currency)
+    },
+
+    wipeAll(): Promise<void> {
+      return remove(ref(db, root))
+    },
+  }
 }

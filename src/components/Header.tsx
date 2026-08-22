@@ -1,4 +1,6 @@
-import { CalendarRange, ChevronLeft, ChevronRight, Moon, Settings, Sun, Wallet } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronLeft, ChevronRight, LogOut, Moon, Settings, Sun, Wallet } from 'lucide-react'
+import type { User } from 'firebase/auth'
 import { fmtMonth } from '../lib/format'
 import { currentYm, addMonths } from '../lib/stats'
 import type { Theme } from '../hooks/useTheme'
@@ -9,14 +11,21 @@ export function Header({
   theme,
   toggleTheme,
   onOpenSettings,
+  user,
+  onSignOut,
 }: {
   ym: string
   setYm: (ym: string) => void
   theme: Theme
   toggleTheme: () => void
   onOpenSettings: () => void
+  user: User
+  onSignOut: () => void
 }) {
   const atCurrent = ym >= currentYm()
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  const displayName = user.displayName || user.email || 'Account'
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-white/80 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/80">
@@ -70,10 +79,53 @@ export function Header({
           >
             <Settings size={18} />
           </button>
+
+          <div className="relative">
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              aria-label="Account menu"
+              aria-expanded={menuOpen}
+              className="ml-0.5 flex items-center rounded-full ring-2 ring-transparent transition hover:ring-emerald-500/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
+            >
+              {user.photoURL ? (
+                <img
+                  src={user.photoURL}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  className="size-8 rounded-full object-cover"
+                />
+              ) : (
+                <span className="flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 text-xs font-bold uppercase text-white">
+                  {displayName.trim().charAt(0) || '?'}
+                </span>
+              )}
+            </button>
+
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                <div className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+                  <div className="border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
+                    <p className="truncate text-sm font-medium">{displayName}</p>
+                    {user.email && (
+                      <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">{user.email}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false)
+                      onSignOut()
+                    }}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-50"
+                  >
+                    <LogOut size={15} /> Sign out
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </header>
   )
 }
-
-export const MONTH_ICON = CalendarRange

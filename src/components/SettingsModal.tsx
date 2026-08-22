@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { AlertTriangle, Database, Trash2 } from 'lucide-react'
 import { useAppData } from '../context/AppData'
 import { Button, Field, Modal, Select } from '../components/ui'
-import { dbApi } from '../lib/db'
 import { DB_URL } from '../firebase'
 import { cx } from '../lib/format'
 
@@ -12,7 +11,7 @@ const CURRENCIES = [
 ]
 
 export function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { currency, status } = useAppData()
+  const { currency, status, api } = useAppData()
   const [confirmingWipe, setConfirmingWipe] = useState(false)
 
   async function wipe() {
@@ -21,7 +20,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
       return
     }
     try {
-      await dbApi.wipeAll()
+      await api.wipeAll()
     } catch {
       window.alert('Could not delete data. Check your database rules.')
     }
@@ -32,7 +31,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
     <Modal open={open} onClose={onClose} title="Settings">
       <div className="space-y-5">
         <Field label="Currency" hint="Used everywhere amounts are displayed.">
-          <Select value={currency} onChange={(e) => void dbApi.saveCurrency(e.target.value)}>
+          <Select value={currency} onChange={(e) => void api.saveCurrency(e.target.value)}>
             {CURRENCIES.map((c) => (
               <option key={c} value={c}>
                 {c}
