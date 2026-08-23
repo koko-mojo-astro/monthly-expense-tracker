@@ -1,6 +1,6 @@
 import { ref, push, set, update, remove } from 'firebase/database'
 import { db } from '../firebase'
-import type { Expense, Goal } from './types'
+import type { Expense, Goal, Settings } from './types'
 
 type ExpenseDraft = Omit<Expense, 'id'>
 
@@ -13,6 +13,7 @@ export interface DbApi {
   setLiabilityPaid(ym: string, id: string, paid: boolean): Promise<void>
   deleteLiability(ym: string, id: string): Promise<void>
   saveGoal(patch: Partial<Omit<Goal, 'createdAt'>>): Promise<void>
+  saveSettings(patch: Partial<Settings>): Promise<void>
   saveCurrency(currency: string): Promise<void>
   wipeAll(): Promise<void>
 }
@@ -53,6 +54,10 @@ export function createDbApi(uid: string): DbApi {
 
     saveGoal(patch: Partial<Omit<Goal, 'createdAt'>>): Promise<void> {
       return update(ref(db, `${root}/goal/current`), { ...patch, updatedAt: Date.now() })
+    },
+
+    saveSettings(patch: Partial<Settings>): Promise<void> {
+      return update(ref(db, `${root}/settings`), patch)
     },
 
     saveCurrency(currency: string): Promise<void> {

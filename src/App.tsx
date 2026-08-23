@@ -8,10 +8,12 @@ import { AuthScreen } from './components/AuthScreen'
 import { BottomNav, Sidebar, type ViewId } from './components/Nav'
 import { SettingsModal } from './components/SettingsModal'
 import { DashboardView } from './views/DashboardView'
+import { PlannerView } from './views/PlannerView'
 import { TransactionsView } from './views/TransactionsView'
 import { MonthlyView } from './views/MonthlyView'
 import { GoalView } from './views/GoalView'
 import { currentYm } from './lib/stats'
+import { todayISO } from './lib/format'
 
 const RULES_SNIPPET = `{
   "rules": {
@@ -73,6 +75,7 @@ function Shell() {
           <Sidebar active={view} onSelect={setView} />
           <main className="min-w-0 flex-1 pb-24 lg:pb-6">
             {view === 'dashboard' && <DashboardView ym={ym} theme={theme} onNavigate={setView} />}
+            {view === 'planner' && <PlannerView today={todayISO()} onNavigate={setView} />}
             {view === 'transactions' && <TransactionsView key={ym} ym={ym} />}
             {view === 'monthly' && <MonthlyView key={ym} ym={ym} />}
             {view === 'goal' && <GoalView key={ym} ym={ym} />}

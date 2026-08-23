@@ -1,10 +1,11 @@
-import { CalendarRange, LayoutDashboard, PiggyBank, ReceiptText } from 'lucide-react'
+import { CalendarRange, Calculator, LayoutDashboard, PiggyBank, ReceiptText } from 'lucide-react'
 import { cx } from '../lib/format'
 
-export type ViewId = 'dashboard' | 'transactions' | 'monthly' | 'goal'
+export type ViewId = 'dashboard' | 'planner' | 'transactions' | 'monthly' | 'goal'
 
 export const NAV_ITEMS: Array<{ id: ViewId; label: string; icon: typeof LayoutDashboard }> = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'planner', label: 'Planner', icon: Calculator },
   { id: 'transactions', label: 'Transactions', icon: ReceiptText },
   { id: 'monthly', label: 'Income & Bills', icon: CalendarRange },
   { id: 'goal', label: 'Savings Goal', icon: PiggyBank },
@@ -51,14 +52,14 @@ export function BottomNav({
 }) {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden dark:border-zinc-800 dark:bg-zinc-950/90">
-      <ul className="mx-auto grid max-w-md grid-cols-4">
+      <ul className="mx-auto grid max-w-lg grid-cols-5">
         {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
           <li key={id}>
             <button
               onClick={() => onSelect(id)}
               aria-current={active === id ? 'page' : undefined}
               className={cx(
-                'flex w-full flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition',
+                'flex w-full flex-col items-center gap-0.5 px-0.5 py-2.5 text-[10px] font-medium transition sm:text-[11px]',
                 active === id ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-500 dark:text-zinc-400',
               )}
             >

@@ -118,3 +118,84 @@ export function monthsUntil(fromYm: string, toYm: string): number {
   const [ty, tm] = toYm.split('-').map(Number)
   return (ty ?? fy ?? 1970) * 12 + (tm ?? 1) - ((fy ?? 1970) * 12 + (fm ?? 1))
 }
+
+/* ------------------------------------------------------------------ */
+/* Pay-cycle helpers                                                   */
+/* ------------------------------------------------------------------ */
+
+function parseISO(iso: string): Date {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1)
+}
+
+function toISO(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate(),
+  ).padStart(2, '0')}`
+}
+
+export function isoAddDays(iso: string, days: number): string {
+  const d = parseISO(iso)
+  d.setDate(d.getDate() + days)
+  return toISO(d)
+}
+
+function daysInMonth(ymStr: string): number {
+  const [y, m] = ymStr.split('-').map(Number)
+  return new Date(y ?? 1970, m ?? 1, 0).getDate()
+}
+
+/** The payday date within `ymStr`, clamped to the month's length. */
+export function paydayISOFor(ymStr: string, paydayDay: number): string {
+  const day = Math.min(Math.max(1, Math.round(paydayDay)), daysInMonth(ymStr))
+  return `${ymStr}-${String(day).padStart(2, '0')}`
+}
+
+export interface Cycle {
+  /** First day of the cycle (payday). */
+  start: string
+  /** Last day of the cycle (day before next payday). */
+  end: string
+  /** Next payday = first day of the following cycle. */
+  nextPayday: string
+  /** Calendar month this cycle funds (the month its `end` falls in). */
+  fundedYm: string
+}
+
+/** The cycle containing `today`, given the payday day-of-month. */
+export function currentCycleStart(paydayDay: number, today: string): string {
+  const ymToday = today.slice(0, 7)
+  const thisPayday = paydayISOFor(ymToday, paydayDay)
+  const startYm = today >= thisPayday ? ymToday : addMonths(ymToday, -1)
+  return paydayISOFor(startYm, paydayDay)
+}
+
+/** Cycle starting at `startISO` and ending the day before the next payday. */
+export function buildCycle(startISO: string, paydayDay: number): Cycle {
+  const nextPayday = paydayISOFor(addMonths(startISO.slice(0, 7), 1), paydayDay)
+  const end = isoAddDays(nextPayday, -1)
+  return { start: startISO, end, nextPayday, fundedYm: end.slice(0, 7) }
+}
+
+/**
+ * All dates within [start, end] whose weekday matches `weekday`
+ * (0 = Sunday … 6 = Saturday) — i.e. every rent due date in the cycle.
+ */
+export function rentDatesInCycle(start: string, end: string, weekday: number): string[] {
+  const dates: string[] = []
+  const cursor = parseISO(start)
+  const last = parseISO(end)
+  while (cursor <= last) {
+    if (cursor.getDay() === weekday) dates.push(toISO(cursor))
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return dates
+}
+
+export function sumExpensesInRange(expenses: Expense[], start: string, end: string): number {
+  let total = 0
+  for (const e of expenses) {
+    if (e.date >= start && e.date <= end) total += e.amount
+  }
+  return total
+}

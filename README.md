@@ -10,6 +10,11 @@ to reach based on your average monthly surplus.
   Firebase Auth; every account gets an isolated data folder (`users/{uid}/…`)
 - **Dashboard** — income, expenses, bills and net savings for any month, plus category
   breakdown (donut), 6-month trend chart and recent transactions
+- **Pay-cycle planner** — plans your money the way you actually live it: from one payday
+  to the next rather than calendar months. Enter expected take-home and it auto-splits:
+  weekly rent (counts every rent day that lands in the cycle — 4 or 5 automatically),
+  unpaid bills for the funded month, groceries set-aside, then shows what's left as
+  flexible/emergency savings with per-week allowance and mid-cycle "spent so far"
 - **Daily expenses** — log, edit and delete expenses with categories, dates and notes,
   grouped by day
 - **Monthly income** — store your income per month
@@ -76,8 +81,20 @@ users/{uid}
 ├── incomes/{YYYY-MM}          { amount, updatedAt }
 ├── liabilities/{YYYY-MM}/{id} { name, amount, paid }
 ├── goal/current               { title?, targetAmount, savedAmount, targetDate? }
-└── settings/currency          "USD"
+└── settings
+    ├── currency               "NZD" (default)
+    ├── paydayDay              24        // pay cycle starts this day
+    ├── weeklyRent             520       // auto-multiplied by rent days in cycle
+    ├── rentWeekday            1         // 0=Sun … 6=Sat
+    └── groceriesBudget        180
 ```
+
+### Pay cycles
+
+A cycle starts on `paydayDay` of one month and ends the day before the next payday.
+The salary received at the start funds the month its final week falls in — e.g. the
+Aug 24 → Sep 23 cycle is your "September money", so it is saved as **September income**
+and covers September's bills.
 
 ## Deployment
 

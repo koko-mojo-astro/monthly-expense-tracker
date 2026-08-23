@@ -13,12 +13,15 @@ export interface AppData {
   liabilities: LiabilitiesMap
   goal: Goal | null
   currency: string
+  settings: Settings
   api: DbApi
 }
 
-const FALLBACK_CURRENCY = 'USD'
+const FALLBACK_CURRENCY = 'NZD'
 
 const noop = () => Promise.resolve()
+
+const EMPTY_SETTINGS: Settings = {}
 
 const AppDataContext = createContext<AppData>({
   status: 'connecting',
@@ -28,6 +31,7 @@ const AppDataContext = createContext<AppData>({
   liabilities: {},
   goal: null,
   currency: FALLBACK_CURRENCY,
+  settings: EMPTY_SETTINGS,
   api: {
     addExpense: () => Promise.resolve(null),
     updateExpense: noop,
@@ -37,6 +41,7 @@ const AppDataContext = createContext<AppData>({
     setLiabilityPaid: noop,
     deleteLiability: noop,
     saveGoal: noop,
+    saveSettings: noop,
     saveCurrency: noop,
     wipeAll: noop,
   },
@@ -74,6 +79,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     liabilities: liabilitiesQ.data ?? {},
     goal: goalQ.data,
     currency: settingsQ.data?.currency ?? FALLBACK_CURRENCY,
+    settings: settingsQ.data ?? EMPTY_SETTINGS,
     api: createDbApi(uid || 'anonymous'),
   }
 
