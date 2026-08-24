@@ -4,6 +4,10 @@ A mobile-first, dark-mode-ready expense tracker that syncs in real time with Fir
 Realtime Database. Set a savings goal and instantly see how many months it will take
 to reach based on your average monthly surplus.
 
+Self-contained and self-hostable: clone it, plug in your own Firebase project, and run
+it on localhost as a personal/internal tool or deploy the static build to any hosting
+provider you like.
+
 ## Features
 
 - **Authentication** — Google one-tap sign-in plus email/password registration via
@@ -38,40 +42,88 @@ to reach based on your average monthly surplus.
 | Firebase JS SDK | 12 |
 | Chart.js + react-chartjs-2 | 4 / 5 |
 
-## Development
+## Running on localhost
+
+### Prerequisites
+
+- **Node.js 20+** (22 recommended) and npm
+- A free **Firebase** project — the app stores all data in *your* project, nothing is
+  shared with anyone else
+
+### 1. Clone and install
 
 ```bash
+git clone https://github.com/koko-mojo-astro/monthly-expense-tracker.git
+cd monthly-expense-tracker
 npm install
-npm run dev      # local dev server
-npm run build    # typecheck + production build into dist/
 ```
 
-## Firebase setup
+### 2. Connect your Firebase project
 
-1. **Enable Authentication** — Firebase Console → **Authentication → Sign-in method**:
+1. Go to the [Firebase Console](https://console.firebase.google.com/) → **Add project**
+   (skip Google Analytics if you don't need it).
+2. In the project, register a Web app: **Project settings → General → Your apps →
+   Web app (`</>`)** → copy the `firebaseConfig` object.
+3. Open **Build → Realtime Database → Create database**, then **Rules** tab and paste:
+
+   ```json
+   {
+     "rules": {
+       "users": {
+         "$uid": {
+           ".read": "auth !== null && auth.uid === $uid",
+           ".write": "auth !== null && auth.uid === $uid"
+         }
+       }
+     }
+   }
+   ```
+
+   Each signed-in user can only read/write their own `users/{uid}/…` subtree.
+4. Enable sign-in methods under **Build → Authentication → Sign-in method**:
    enable **Google** and **Email/Password**.
-2. **Authorize your domains** — Authentication → **Settings → Authorized domains**:
-   add `localhost` (usually pre-added) and your Render domain, e.g.
-   `monthly-expense-tracker-7sbi.onrender.com`. Google sign-in fails with
-   `auth/unauthorized-domain` without this.
-3. **Lock the database** — Realtime Database → **Rules**:
+5. Under **Authentication → Settings → Authorized domains**, make sure `localhost`
+   is listed (it is by default).
+6. Paste your config into [`src/firebase.ts`](src/firebase.ts), replacing the existing
+   `firebaseConfig`.
 
-```json
-{
-  "rules": {
-    "users": {
-      "$uid": {
-        ".read": "auth !== null && auth.uid === $uid",
-        ".write": "auth !== null && auth.uid === $uid"
-      }
-    }
-  }
-}
+> The committed `src/firebase.ts` points at the author's personal project. For private
+> or team use, always use your own project — you fully control and own the data.
+
+### 3. Start the dev server
+
+```bash
+npm run dev
 ```
 
-Each signed-in user can only read/write their own `users/{uid}/…` subtree.
+Open **http://localhost:5173**, sign in with Google or email/password, and start
+tracking. Hot reload is enabled — changes apply instantly.
 
-Update `src/firebase.ts` with your own project config if you fork this.
+## Production build
+
+```bash
+npm run build    # typechecks, then bundles into dist/
+npm run preview  # serves dist/ locally at http://localhost:4173
+```
+
+## Hosting it anywhere
+
+The production build is a plain static bundle in `dist/` — there is no backend of your
+own to run, since Firebase provides auth and the database. That means you can host it
+wherever you like, or keep it entirely internal:
+
+- **Internal tool**: put `dist/` on any machine and serve the folder with any static
+  file server (nginx, Apache, Caddy, `npx serve dist`, …) — ideal for family/self-hosted
+  use on a LAN.
+- **Any static host**: upload/deploy `dist/` to the static hosting provider of your
+  choice (build command `npm install && npm run build`, publish directory `dist` is all
+  they need).
+
+One step after deploying somewhere new: add your site's domain under
+**Firebase → Authentication → Settings → Authorized domains**, otherwise Google
+sign-in will fail with `auth/unauthorized-domain`. Email/password sign-in works
+regardless. There are no server-side redirects to configure — it's a single-page app
+with a single route.
 
 ## Data model (RTDB)
 
@@ -95,10 +147,3 @@ A cycle starts on `paydayDay` of one month and ends the day before the next payd
 The salary received at the start funds the month its final week falls in — e.g. the
 Aug 24 → Sep 23 cycle is your "September money", so it is saved as **September income**
 and covers September's bills.
-
-## Deployment
-
-Static build (`dist/`) hosted on [Render](https://render.com):
-
-- Build command: `npm install && npm run build`
-- Publish directory: `dist`
