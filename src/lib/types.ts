@@ -37,6 +37,14 @@ export interface Goal {
 
 export interface Settings {
   currency?: string
+  /** Day of month the salary lands (1–28). The pay cycle starts on this day. */
+  paydayDay?: number
+  /** Weekly rent amount. */
+  weeklyRent?: number
+  /** Day of week rent is due: 0 = Sunday … 6 = Saturday. */
+  rentWeekday?: number
+  /** Groceries set-aside per cycle. */
+  groceriesBudget?: number
 }
 
 export interface MonthSummary {
