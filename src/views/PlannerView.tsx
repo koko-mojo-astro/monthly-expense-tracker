@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CalendarCheck2,
+  CalendarPlus,
   CalendarX2,
   ChevronLeft,
   ChevronRight,
   Coins,
+  CopyPlus,
   Home,
   PiggyBank,
+  Plus,
   ShoppingCart,
   TriangleAlert,
 } from 'lucide-react'
@@ -22,14 +25,9 @@ import {
   Select,
   Skeleton,
 } from '../components/ui'
-import { cx, fmtDay, fmtMoney, fmtMonth } from '../lib/format'
-import {
-  buildCycle,
-  currentCycleStart,
-  paydayISOFor,
-  rentDatesInCycle,
-  sumExpensesInRange,
-} from '../lib/stats'
+import { cx, fmtDay, fmtMoney, fmtMonth, todayISO } from '../lib/format'
+import { buildCycle, currentCycleStart, paydayISOFor } from '../lib/stats'
+import { computeCyclePlan, defaultCycle } from '../lib/cycle'
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -38,11 +36,21 @@ function num(v: string): number {
   return isFinite(n) ? n : 0
 }
 
+function clampOffset(n: number): number {
+  return Math.max(-12, Math.min(3, n))
+}
+
+function shiftYm(ym: string, n: number): string {
+  const [y, m] = ym.split('-').map(Number)
+  const d = new Date(y ?? 1970, ((m ?? 1) - 1) + n, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
 export function PlannerView({
-  today,
+  today = todayISO(),
   onNavigate,
 }: {
-  today: string
+  today?: string
   onNavigate: (v: ViewId) => void
 }) {
   const { settings, incomes, liabilities, expenses, goal, currency, api, loading } = useAppData()
@@ -64,63 +72,54 @@ export function PlannerView({
     assumptionsLoaded.current = true
   }, [settings, loading])
 
-  // Expected income for the cycle — prefilled from the funded month if set
-  const [incomeInput, setIncomeInput] = useState('')
-  const incomeTouched = useRef(false)
-
-  // Cycle navigation: 0 = current cycle, -1 previous, +1 next
-  const [offset, setOffset] = useState(0)
-
   const pd = Math.min(Math.max(1, Math.round(num(paydayDay) || 24)), 28)
 
+  // Smart default: near payday, plan the upcoming cycle (the one the arriving
+  // salary funds) instead of the one that is about to end.
+  const defaultOffset = useMemo(() => {
+    return defaultCycle(pd, today).start === currentCycleStart(pd, today) ? 0 : 1
+  }, [pd, today])
+  const [offsetDelta, setOffsetDelta] = useState(0)
+  const [navigated, setNavigated] = useState(false)
+  const offset = navigated ? offsetDelta : defaultOffset
+
   const cycle = useMemo(() => {
-    const baseStart = currentCycleStart(pd, today)
-    const start = paydayISOFor(
-      (function shift(ym: string, n: number): string {
-        const [y, m] = ym.split('-').map(Number)
-        const d = new Date(y ?? 1970, ((m ?? 1) - 1) + n, 1)
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      })(baseStart.slice(0, 7), offset),
-      pd,
-    )
+    const baseYm = currentCycleStart(pd, today).slice(0, 7)
+    const start = paydayISOFor(shiftYm(baseYm, offset), pd)
     return buildCycle(start, pd)
   }, [pd, offset, today])
 
-  const isPast = cycle.end < today
-  const isFuture = cycle.start > today
+  const effSettings = useMemo(
+    () => ({
+      ...settings,
+      paydayDay: pd,
+      weeklyRent: num(weeklyRent),
+      rentWeekday: num(rentWeekday),
+      groceriesBudget: num(groceries),
+    }),
+    [settings, pd, weeklyRent, rentWeekday, groceries],
+  )
 
-  // Prefill income from the funded month until the user edits it manually
+  const plan = useMemo(
+    () => computeCyclePlan(cycle, effSettings, incomes, liabilities, expenses, today),
+    [cycle, effSettings, incomes, liabilities, expenses, today],
+  )
+
+  // Expected income — prefilled from the funded month until edited; resets
+  // when switching cycles so each cycle reflects its own stored income.
+  const [incomeInput, setIncomeInput] = useState('')
+  const incomeTouched = useRef(false)
+  const lastFundedYm = useRef('')
+
   useEffect(() => {
+    if (lastFundedYm.current !== cycle.fundedYm) {
+      lastFundedYm.current = cycle.fundedYm
+      incomeTouched.current = false
+    }
     if (incomeTouched.current) return
     const v = incomes[cycle.fundedYm]?.amount
     setIncomeInput(v != null ? String(v) : '')
   }, [incomes, cycle.fundedYm])
-
-  const rentDates = useMemo(
-    () => rentDatesInCycle(cycle.start, cycle.end, num(rentWeekday)),
-    [cycle.start, cycle.end, rentWeekday],
-  )
-
-  const monthLiabilities = liabilities[cycle.fundedYm] ?? {}
-  const billsList = Object.entries(monthLiabilities).map(([id, l]) => ({ ...l, id }))
-  const unpaidBills = billsList.filter((l) => !l.paid)
-  const paidBills = billsList.filter((l) => l.paid)
-
-  const rentTotal = num(weeklyRent) * rentDates.length
-  const billsTotal = unpaidBills.reduce((acc, l) => acc + l.amount, 0)
-  const groceriesTotal = num(groceries)
-  const incomeNum = num(incomeInput)
-
-  const committed = rentTotal + billsTotal + groceriesTotal
-  const flexible = incomeNum - committed
-  const weeks = Math.max(rentDates.length, 1)
-  const perWeek = flexible / weeks
-
-  const spentInRange =
-    isFuture ? 0 : sumExpensesInRange(expenses, cycle.start, isPast ? cycle.end : today)
-  const stillAvailable = flexible - spentInRange
-
-  const pctOfIncome = (v: number) => (incomeNum > 0 ? (v / incomeNum) * 100 : 0)
 
   const [savedFlash, setSavedFlash] = useState(false)
   const [incomeSavedFlash, setIncomeSavedFlash] = useState(false)
@@ -131,7 +130,7 @@ export function PlannerView({
         paydayDay: pd,
         weeklyRent: num(weeklyRent),
         rentWeekday: num(rentWeekday),
-        groceriesBudget: groceriesTotal,
+        groceriesBudget: num(groceries),
       })
       setAssumptionsDirty(false)
       setSavedFlash(true)
@@ -142,9 +141,10 @@ export function PlannerView({
   }
 
   async function useIncomeForCycle() {
-    if (incomeNum <= 0) return
+    const amount = num(incomeInput)
+    if (amount <= 0) return
     try {
-      await api.setIncome(cycle.fundedYm, incomeNum)
+      await api.setIncome(cycle.fundedYm, amount)
       setIncomeSavedFlash(true)
       setTimeout(() => setIncomeSavedFlash(false), 2000)
     } catch {
@@ -153,19 +153,64 @@ export function PlannerView({
   }
 
   async function addToGoal() {
-    if (!goal || flexible <= 0) return
+    if (!goal || plan.flexible <= 0) return
     if (
       !window.confirm(
-        `Add ${fmtMoney(flexible, currency)} to your savings goal?\nCurrent saved: ${fmtMoney(goal.savedAmount, currency)}`,
+        `Add ${fmtMoney(plan.flexible, currency)} to your savings goal?\nCurrent saved: ${fmtMoney(goal.savedAmount, currency)}`,
       )
     )
       return
     try {
-      await api.saveGoal({ savedAmount: goal.savedAmount + flexible })
+      await api.saveGoal({ savedAmount: goal.savedAmount + plan.flexible })
     } catch {
       window.alert('Could not update the goal. Check your database rules.')
     }
   }
+
+  // Inline bill quick-add (writes straight into the funded month)
+  const [billFormOpen, setBillFormOpen] = useState(false)
+  const [billName, setBillName] = useState('')
+  const [billAmount, setBillAmount] = useState('')
+
+  async function quickAddBill(e: React.FormEvent) {
+    e.preventDefault()
+    const amount = num(billAmount)
+    if (!billName.trim() || amount <= 0) return
+    try {
+      await api.addLiability(cycle.fundedYm, billName.trim(), amount)
+      setBillName('')
+      setBillAmount('')
+      setBillFormOpen(false)
+    } catch {
+      window.alert('Could not add bill. Check your database rules and connection.')
+    }
+  }
+
+  async function copyBillsFromPrevMonth() {
+    const prevYm = shiftYm(cycle.fundedYm, -1)
+    const prev = liabilities[prevYm]
+    const items = prev ? Object.values(prev) : []
+    if (
+      items.length === 0 ||
+      !window.confirm(
+        `Copy ${items.length} bill${items.length === 1 ? '' : 's'} from ${fmtMonth(prevYm)} to ${fmtMonth(cycle.fundedYm)}?`,
+      )
+    )
+      return
+    try {
+      await Promise.all(items.map((l) => api.addLiability(cycle.fundedYm, l.name, l.amount)))
+    } catch {
+      window.alert('Could not copy bills. Check your database rules and connection.')
+    }
+  }
+
+  const prevYm = shiftYm(cycle.fundedYm, -1)
+  const prevHasBills = Object.keys(liabilities[prevYm] ?? {}).length > 0
+  const badge = plan.isFuture
+    ? { label: 'Upcoming cycle', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' }
+    : plan.isPast
+      ? { label: 'Past cycle', cls: 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-300' }
+      : { label: 'Current cycle', cls: 'bg-teal-500/15 text-teal-700 dark:text-teal-400' }
 
   if (loading) {
     return (
@@ -187,32 +232,43 @@ export function PlannerView({
             <CalendarCheck2 size={18} />
           </span>
           <div className="min-w-0">
-            <p className="text-sm font-semibold">Pay-cycle plan</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold">Pay-cycle plan</p>
+              <span className={cx('rounded-full px-2 py-0.5 text-[11px] font-semibold', badge.cls)}>
+                {badge.label}
+              </span>
+            </div>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              {fmtDay(cycle.start)} → {fmtDay(cycle.end)} · funds{' '}
-              <b>{fmtMonth(cycle.fundedYm)}</b>
+              {fmtDay(cycle.start)} → {fmtDay(cycle.end)} · <b>{fmtMonth(cycle.fundedYm)}</b>'s
+              money
             </p>
           </div>
           <div className="ml-auto flex items-center gap-1">
-            {!isPast && (
-              <>
-                <Button variant="ghost" onClick={() => setOffset((o) => o - 1)} aria-label="Previous cycle" className="px-2">
-                  <ChevronLeft size={17} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  disabled={isFuture}
-                  onClick={() => setOffset((o) => o + 1)}
-                  aria-label="Next cycle"
-                  className="px-2"
-                >
-                  <ChevronRight size={17} />
-                </Button>
-              </>
-            )}
-            {(isPast || isFuture || offset !== 0) && (
-              <Button variant="subtle" onClick={() => setOffset(0)}>
-                Today's cycle
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setOffsetDelta((o) => clampOffset((navigated ? o : defaultOffset) - 1))
+                setNavigated(true)
+              }}
+              aria-label="Previous cycle"
+              className="px-2"
+            >
+              <ChevronLeft size={17} />
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setOffsetDelta((o) => clampOffset((navigated ? o : defaultOffset) + 1))
+                setNavigated(true)
+              }}
+              aria-label="Next cycle"
+              className="px-2"
+            >
+              <ChevronRight size={17} />
+            </Button>
+            {navigated && offset !== defaultOffset && (
+              <Button variant="subtle" onClick={() => setNavigated(false)}>
+                Latest
               </Button>
             )}
           </div>
@@ -222,7 +278,7 @@ export function PlannerView({
       {/* Expected income */}
       <Card className="p-4 sm:p-5">
         <SectionTitle title={`Expected take-home · ${fmtMonth(cycle.fundedYm)}`} />
-        <div className="flex items-end gap-2">
+        <div className="flex flex-wrap items-end gap-2">
           <Field label={`Salary received ${fmtDay(cycle.start)}`}>
             <Input
               inputMode="decimal"
@@ -237,12 +293,16 @@ export function PlannerView({
               }}
             />
           </Field>
-          <Button onClick={useIncomeForCycle} disabled={incomeNum <= 0} className="mb-px shrink-0">
+          <Button onClick={useIncomeForCycle} disabled={num(incomeInput) <= 0} className="mb-px shrink-0">
             Set as {fmtMonth(cycle.fundedYm)} income
           </Button>
         </div>
         <p className="mt-2 h-4 text-xs text-emerald-600 dark:text-emerald-400">
-          {incomeSavedFlash && '✓ Saved to your monthly income'}
+          {incomeSavedFlash && '✓ Saved — now shown on Dashboard and Income & Bills'}
+        </p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          This salary covers everything from {fmtDay(cycle.start)} until{' '}
+          {fmtDay(cycle.nextPayday)}.
         </p>
       </Card>
 
@@ -334,18 +394,18 @@ export function PlannerView({
               <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400" aria-hidden>
                 <Home size={15} />
               </span>
-              <p className="text-sm font-medium flex-1 min-w-0 truncate">Rent</p>
-              <span className="text-sm tabular-nums text-zinc-500 dark:text-zinc-400">
-                {fmtMoney(num(weeklyRent), currency)} × {rentDates.length}{' '}
-                {rentDates.length === 1 ? 'week' : 'weeks'}
+              <p className="min-w-0 flex-1 truncate text-sm font-medium">Rent</p>
+              <span className="shrink-0 text-sm tabular-nums text-zinc-500 dark:text-zinc-400">
+                {fmtMoney(plan.weeklyRent, currency)} × {plan.rentDates.length}{' '}
+                {plan.rentDates.length === 1 ? 'week' : 'weeks'}
               </span>
               <span className="w-24 shrink-0 text-right text-sm font-semibold tabular-nums">
-                {fmtMoney(rentTotal, currency)}
+                {fmtMoney(plan.rentTotal, currency)}
               </span>
             </div>
-            {rentDates.length > 0 && (
+            {plan.rentDates.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5 pl-[42px]">
-                {rentDates.map((d) => (
+                {plan.rentDates.map((d) => (
                   <span
                     key={d}
                     className="rounded-lg bg-zinc-100 px-2 py-1 text-[11px] font-medium tabular-nums text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
@@ -363,19 +423,20 @@ export function PlannerView({
               <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400" aria-hidden>
                 <CalendarX2 size={15} />
               </span>
-              <p className="text-sm font-medium flex-1 min-w-0 truncate">
+              <p className="min-w-0 flex-1 truncate text-sm font-medium">
                 Bills & liabilities · {fmtMonth(cycle.fundedYm)}
               </p>
-              <span className="text-sm tabular-nums text-zinc-500 dark:text-zinc-400">
-                {unpaidBills.length} unpaid
+              <span className="shrink-0 text-sm tabular-nums text-zinc-500 dark:text-zinc-400">
+                {plan.unpaidBills.length} unpaid
               </span>
               <span className="w-24 shrink-0 text-right text-sm font-semibold tabular-nums">
-                {fmtMoney(billsTotal, currency)}
+                {fmtMoney(plan.billsTotal, currency)}
               </span>
             </div>
-            {billsList.length > 0 ? (
+
+            {plan.allBills.length > 0 && (
               <ul className="mt-2 space-y-1 pl-[42px]">
-                {[...unpaidBills, ...paidBills].slice(0, 6).map((l) => (
+                {[...plan.unpaidBills, ...plan.paidBills].slice(0, 6).map((l) => (
                   <li key={l.id} className="flex items-center justify-between text-xs">
                     <span
                       className={
@@ -396,49 +457,114 @@ export function PlannerView({
                     </span>
                   </li>
                 ))}
-                {billsList.length > 6 && (
-                  <li>
-                    <button
-                      onClick={() => onNavigate('monthly')}
-                      className="text-xs font-medium text-emerald-600 hover:underline dark:text-emerald-400"
-                    >
-                      +{billsList.length - 6} more — manage bills
-                    </button>
-                  </li>
+                {plan.allBills.length > 6 && (
+                  <li className="text-xs text-zinc-400">+{plan.allBills.length - 6} more…</li>
                 )}
               </ul>
-            ) : (
-              <p className="mt-2 pl-[42px] text-xs text-zinc-500 dark:text-zinc-400">
-                No bills tracked for {fmtMonth(cycle.fundedYm)} yet.
-              </p>
+            )}
+
+            <div className="mt-2 flex flex-wrap items-center gap-2 pl-[42px]">
+              {plan.allBills.length === 0 && !billFormOpen && (
+                <p className="w-full text-xs text-zinc-500 dark:text-zinc-400">
+                  No bills tracked for {fmtMonth(cycle.fundedYm)} yet — add what you'll owe this
+                  cycle:
+                </p>
+              )}
+              {!billFormOpen && (
+                <Button variant="subtle" onClick={() => setBillFormOpen(true)} className="px-3 py-1.5 text-xs">
+                  <Plus size={13} /> Add bill
+                </Button>
+              )}
+              {prevHasBills && plan.allBills.length === 0 && (
+                <Button variant="subtle" onClick={copyBillsFromPrevMonth} className="px-3 py-1.5 text-xs">
+                  <CopyPlus size={13} /> Copy {fmtMonth(prevYm).split(' ')[0]} bills
+                </Button>
+              )}
+              <button
+                onClick={() => onNavigate('monthly')}
+                className="text-xs font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+              >
+                Manage in Income & Bills →
+              </button>
+            </div>
+
+            {billFormOpen && (
+              <form
+                onSubmit={quickAddBill}
+                className="mt-2 flex flex-wrap items-end gap-2 pl-[42px]"
+              >
+                <Input
+                  type="text"
+                  placeholder="Bill name"
+                  maxLength={60}
+                  value={billName}
+                  onChange={(e) => setBillName(e.target.value)}
+                  className="w-40 flex-1"
+                />
+                <Input
+                  inputMode="decimal"
+                  type="number"
+                  step="any"
+                  min="0"
+                  placeholder="Amount"
+                  value={billAmount}
+                  onChange={(e) => setBillAmount(e.target.value)}
+                  className="w-28"
+                />
+                <Button type="submit" className="px-3 py-1.5 text-xs">
+                  <CalendarPlus size={13} /> Add
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setBillFormOpen(false)}
+                  className="px-3 py-1.5 text-xs"
+                >
+                  Cancel
+                </Button>
+              </form>
             )}
           </div>
 
           {/* Groceries */}
-          <div className="flex items-center gap-2.5 rounded-xl border border-zinc-100 p-3 dark:border-zinc-800">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-green-500/10 text-green-600 dark:text-green-400" aria-hidden>
-              <ShoppingCart size={15} />
-            </span>
-            <p className="text-sm font-medium flex-1 min-w-0 truncate">
-              Groceries set-aside
-            </p>
-            <span className="text-sm tabular-nums text-zinc-500 dark:text-zinc-400">
-              ≈ {fmtMoney(groceriesTotal / weeks, currency)}/wk
-            </span>
-            <span className="w-24 shrink-0 text-right text-sm font-semibold tabular-nums">
-              {fmtMoney(groceriesTotal, currency)}
-            </span>
+          <div className="rounded-xl border border-zinc-100 p-3 dark:border-zinc-800">
+            <div className="flex items-center gap-2.5">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-green-500/10 text-green-600 dark:text-green-400" aria-hidden>
+                <ShoppingCart size={15} />
+              </span>
+              <p className="min-w-0 flex-1 truncate text-sm font-medium">Groceries set-aside</p>
+              <span className="shrink-0 text-sm tabular-nums text-zinc-500 dark:text-zinc-400">
+                ≈ {fmtMoney(plan.groceriesBudget / plan.weeks, currency)}/wk
+              </span>
+              <span className="w-24 shrink-0 text-right text-sm font-semibold tabular-nums">
+                {fmtMoney(plan.groceriesBudget, currency)}
+              </span>
+            </div>
+            {!plan.isFuture && plan.groceriesBudget > 0 && (
+              <div className="mt-2 pl-[42px]">
+                <ProgressBar
+                  value={(plan.groceriesSpent / plan.groceriesBudget) * 100}
+                  className="h-1.5"
+                />
+                <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  Spent {fmtMoney(plan.groceriesSpent, currency)} of{' '}
+                  {fmtMoney(plan.groceriesBudget, currency)} on Groceries
+                  {plan.isPast ? ' in this cycle' : ' so far'}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Committed bar */}
           <div>
-            <ProgressBar value={pctOfIncome(committed)} className="h-3" />
+            <ProgressBar value={plan.income > 0 ? (plan.committed / plan.income) * 100 : 0} className="h-3" />
             <div className="mt-1.5 flex justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
               <span>
-                Committed {fmtMoney(committed, currency)}
-                {incomeNum > 0 && ` (${Math.round(pctOfIncome(committed))}% of income)`}
+                Committed {fmtMoney(plan.committed, currency)}
+                {plan.income > 0 &&
+                  ` (${Math.round((plan.committed / plan.income) * 100)}% of income)`}
               </span>
-              <span>Income {fmtMoney(incomeNum, currency)}</span>
+              <span>Income {fmtMoney(plan.income, currency)}</span>
             </div>
           </div>
         </div>
@@ -454,72 +580,75 @@ export function PlannerView({
             <p
               className={cx(
                 'mt-1 text-3xl font-bold tabular-nums',
-                flexible < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400',
+                plan.flexible < 0
+                  ? 'text-rose-600 dark:text-rose-400'
+                  : 'text-emerald-600 dark:text-emerald-400',
               )}
             >
-              {fmtMoney(flexible, currency)}
+              {fmtMoney(plan.flexible, currency)}
             </p>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              ≈ {fmtMoney(perWeek, currency)} per week unallocated
+              ≈ {fmtMoney(plan.perWeek, currency)} per week unallocated
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
             {goal ? (
-              <Button onClick={addToGoal} disabled={flexible <= 0}>
+              <Button onClick={addToGoal} disabled={plan.flexible <= 0}>
                 <PiggyBank size={16} /> Add to savings goal
               </Button>
             ) : (
-              <Button variant="subtle" onClick={() => onNavigate('goal')} disabled={flexible <= 0}>
+              <Button variant="subtle" onClick={() => onNavigate('goal')} disabled={plan.flexible <= 0}>
                 <PiggyBank size={16} /> Set a goal first
               </Button>
             )}
-            {goal && flexible > 0 && (
+            {goal && plan.flexible > 0 && (
               <p className="max-w-52 text-right text-[11px] text-zinc-400">
-                Moves {fmtMoney(flexible, currency)} into “{goal.title?.trim() || 'Savings Goal'}”
+                Moves {fmtMoney(plan.flexible, currency)} into “
+                {goal.title?.trim() || 'Savings Goal'}”
               </p>
             )}
           </div>
         </div>
 
-        {!isFuture && (
+        {!plan.isFuture && (
           <div className="mt-4 grid grid-cols-2 gap-3 border-t border-zinc-100 pt-4 dark:border-zinc-800">
             <div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                {isPast ? 'Spent in cycle' : 'Spent so far'}
+                {plan.isPast ? 'Spent in cycle' : 'Spent so far'}
               </p>
               <p className="text-base font-semibold tabular-nums">
-                {fmtMoney(spentInRange, currency)}
+                {fmtMoney(plan.spent, currency)}
               </p>
             </div>
             <div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                {isPast ? 'Ended with' : 'Still available'}
+                {plan.isPast ? 'Ended with' : 'Still available'}
               </p>
               <p
                 className={cx(
                   'text-base font-bold tabular-nums',
-                  stillAvailable < 0
+                  plan.available < 0
                     ? 'text-rose-600 dark:text-rose-400'
                     : 'text-teal-600 dark:text-teal-400',
                 )}
               >
-                {fmtMoney(stillAvailable, currency)}
+                {fmtMoney(plan.available, currency)}
               </p>
             </div>
           </div>
         )}
 
-        {incomeNum > 0 && flexible < 0 && (
+        {plan.income > 0 && plan.flexible < 0 && (
           <div className="mt-4 flex items-start gap-2.5 rounded-xl bg-rose-500/10 p-3.5 text-sm text-rose-700 dark:text-rose-300">
             <TriangleAlert size={18} className="mt-0.5 shrink-0" />
             <span>
-              This cycle is over-committed by {fmtMoney(-flexible, currency)}. Trim groceries or
-              check for bills you can defer.
+              This cycle is over-committed by {fmtMoney(-plan.flexible, currency)}. Trim groceries
+              or check for bills you can defer.
             </span>
           </div>
         )}
 
-        {incomeNum === 0 && (
+        {plan.income === 0 && (
           <div className="mt-4 flex items-start gap-2.5 rounded-xl bg-zinc-100 p-3.5 text-sm text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
             <Coins size={18} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
             <span>Enter your expected take-home above to see the full breakdown.</span>

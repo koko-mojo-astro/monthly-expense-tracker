@@ -13,14 +13,17 @@ provider you like.
 - **Authentication** — Google one-tap sign-in plus email/password registration via
   Firebase Auth; every account gets an isolated data folder (`users/{uid}/…`)
 - **Dashboard** — income, expenses, bills and net savings for any month, plus category
-  breakdown (donut), 6-month trend chart and recent transactions
+  breakdown (donut), 6-month trend chart and recent transactions — with an always-on
+  **pay-cycle summary card** (income, committed, spent so far, flexible left)
 - **Pay-cycle planner** — plans your money the way you actually live it: from one payday
   to the next rather than calendar months. Enter expected take-home and it auto-splits:
   weekly rent (counts every rent day that lands in the cycle — 4 or 5 automatically),
   unpaid bills for the funded month, groceries set-aside, then shows what's left as
-  flexible/emergency savings with per-week allowance and mid-cycle "spent so far"
+  flexible/emergency savings with per-week allowance and mid-cycle "spent so far".
+  Opens on the upcoming cycle when payday is near, quick-adds bills inline, tracks
+  groceries actuals against the budget, and pushes income to the month it funds
 - **Daily expenses** — log, edit and delete expenses with categories, dates and notes,
-  grouped by day
+  grouped by day; filter by calendar month **or** by pay cycle
 - **Monthly income** — store your income per month
 - **Bills & liabilities** — track monthly obligations, mark them paid, copy last month's
   bills forward

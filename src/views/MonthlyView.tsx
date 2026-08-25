@@ -10,12 +10,20 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useAppData } from '../context/AppData'
+import type { ViewId } from '../components/Nav'
 import { Button, Card, EmptyState, Field, Input, SectionTitle } from '../components/ui'
-import { cx, fmtMoney, fmtMonth } from '../lib/format'
+import { cx, fmtDay, fmtMoney, fmtMonth } from '../lib/format'
 import { addMonths, summarizeMonth } from '../lib/stats'
+import { cycleForMonth } from '../lib/cycle'
 
-function IncomeCard({ ym }: { ym: string }) {
-  const { incomes, currency, api } = useAppData()
+function IncomeCard({
+  ym,
+  onNavigate,
+}: {
+  ym: string
+  onNavigate?: (v: ViewId) => void
+}) {
+  const { incomes, api, settings } = useAppData()
   const current = incomes[ym]?.amount ?? null
   const [value, setValue] = useState(current != null ? String(current) : '')
   const [saving, setSaving] = useState(false)
@@ -65,14 +73,36 @@ function IncomeCard({ ym }: { ym: string }) {
       <p className="mt-2 h-4 text-xs text-emerald-600 dark:text-emerald-400">
         {savedAt > 0 && '✓ Saved'}
       </p>
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        {currency && `Amounts in ${currency}.`} Income is stored per month.
-      </p>
+      {(() => {
+        const funding = cycleForMonth(ym, settings.paydayDay ?? 24)
+        return (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+            <span>
+              Covered by the pay cycle <b>{fmtDay(funding.start)} → {fmtDay(funding.end)}</b> —
+              plan it in the Planner.
+            </span>
+            {onNavigate && (
+              <button
+                onClick={() => onNavigate('planner')}
+                className="font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+              >
+                Open in Planner →
+              </button>
+            )}
+          </div>
+        )
+      })()}
     </Card>
   )
 }
 
-export function MonthlyView({ ym }: { ym: string }) {
+export function MonthlyView({
+  ym,
+  onNavigate,
+}: {
+  ym: string
+  onNavigate?: (v: ViewId) => void
+}) {
   const { liabilities, expenses, incomes, currency, api } = useAppData()
   const monthItems = Object.entries(liabilities[ym] ?? {}).map(([id, l]) => ({ ...l, id }))
   monthItems.sort((a, b) => a.name.localeCompare(b.name))
@@ -119,7 +149,7 @@ export function MonthlyView({ ym }: { ym: string }) {
   return (
     <div className="grid gap-5 lg:grid-cols-2">
       <div className="space-y-5">
-        <IncomeCard ym={ym} />
+        <IncomeCard ym={ym} onNavigate={onNavigate} />
 
         {/* Net position */}
         <Card className="p-4 sm:p-5">
