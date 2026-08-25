@@ -49,7 +49,11 @@ export interface CyclePlan {
   allBills: Liability[]
   unpaidBills: Liability[]
   paidBills: Liability[]
+  /** All bills in the funded month — paid ones stay committed: the money is gone. */
   billsTotal: number
+  /** Portion of bills not yet paid. */
+  unpaidTotal: number
+  paidTotal: number
   groceriesBudget: number
   /** Actual spend in the Groceries category within the cycle. */
   groceriesSpent: number
@@ -85,7 +89,10 @@ export function computeCyclePlan(
   }))
   const unpaidBills = allBills.filter((l) => !l.paid)
   const paidBills = allBills.filter((l) => l.paid)
-  const billsTotal = unpaidBills.reduce((acc, l) => acc + l.amount, 0)
+  // Paid bills remain committed — marking them paid doesn't free up money.
+  const billsTotal = allBills.reduce((acc, l) => acc + l.amount, 0)
+  const unpaidTotal = unpaidBills.reduce((acc, l) => acc + l.amount, 0)
+  const paidTotal = paidBills.reduce((acc, l) => acc + l.amount, 0)
 
   const income = incomes[cycle.fundedYm]?.amount ?? 0
   const committed = rentTotal + billsTotal + groceriesBudget
@@ -117,6 +124,8 @@ export function computeCyclePlan(
     unpaidBills,
     paidBills,
     billsTotal,
+    unpaidTotal,
+    paidTotal,
     groceriesBudget,
     groceriesSpent,
     income,

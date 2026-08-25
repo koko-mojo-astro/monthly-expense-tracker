@@ -422,6 +422,16 @@ export function PlannerView({
                 )}
               </ul>
             )}
+            {plan.allBills.length > 0 && (
+              <p className="mt-2 pl-[42px] text-[11px] text-zinc-400">
+                {plan.paidBills.length > 0 && (
+                  <>
+                    Paid {fmtMoney(plan.paidTotal, currency)} ·{' '}
+                  </>
+                )}
+                {fmtMoney(plan.unpaidTotal, currency)} still to pay
+              </p>
+            )}
 
             <div className="mt-2 flex flex-wrap items-center gap-2 pl-[42px]">
               {plan.allBills.length === 0 && !billFormOpen && (
