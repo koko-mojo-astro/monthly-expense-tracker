@@ -19,7 +19,8 @@ provider you like.
   to the next rather than calendar months. Enter expected take-home and it auto-splits:
   weekly rent (counts every rent day that lands in the cycle — 4 or 5 automatically),
   unpaid bills for the funded month (paid bills stay committed — the money is
-  already gone), groceries set-aside, then shows what's left as
+  already gone),   groceries set-aside (logged Groceries expenses draw down the envelope instead of
+  flexible money — only overspend falls back to flexible), then shows what's left as
   flexible/emergency savings with per-week allowance and mid-cycle "spent so far".
   Opens on the upcoming cycle when payday is near, quick-adds bills inline, tracks
   groceries actuals against the budget, and pushes income to the month it funds.

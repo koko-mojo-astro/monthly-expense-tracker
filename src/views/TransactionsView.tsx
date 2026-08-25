@@ -35,7 +35,7 @@ function emptyForm(cycle: Cycle, today: string): FormState {
 }
 
 export function TransactionsView({ cycle }: { cycle: Cycle }) {
-  const { expenses, currency, api } = useAppData()
+  const { expenses, currency, api, settings } = useAppData()
   const today = todayISO()
   const [form, setForm] = useState<FormState>(() => emptyForm(cycle, today))
   const [error, setError] = useState<string | null>(null)
@@ -52,6 +52,13 @@ export function TransactionsView({ cycle }: { cycle: Cycle }) {
   }, [expenses, scope, ym, cycle])
 
   const total = scopedExpenses.reduce((acc, e) => acc + e.amount, 0)
+
+  // Groceries envelope draw-down for the selected cycle
+  const groceriesBudget = settings.groceriesBudget ?? 0
+  const groceriesSpent = scopedExpenses
+    .filter((e) => e.category === 'Groceries')
+    .reduce((acc, e) => acc + e.amount, 0)
+  const groceriesLeft = groceriesBudget - groceriesSpent
 
   const groups = new Map<string, { items: Expense[]; total: number }>()
   for (const e of scopedExpenses) {
@@ -216,6 +223,24 @@ export function TransactionsView({ cycle }: { cycle: Cycle }) {
             </div>
           }
         />
+
+        {scope === 'cycle' && groceriesBudget > 0 && (
+          <p
+            className={cx(
+              '-mt-1 mb-3 text-xs',
+              groceriesLeft < 0
+                ? 'text-rose-600 dark:text-rose-400'
+                : 'text-zinc-500 dark:text-zinc-400',
+            )}
+          >
+            Groceries set-aside: {fmtMoney(groceriesSpent, currency)} of{' '}
+            {fmtMoney(groceriesBudget, currency)} used —{' '}
+            {groceriesLeft >= 0
+              ? `${fmtMoney(groceriesLeft, currency)} left`
+              : `${fmtMoney(-groceriesLeft, currency)} over`}
+            . Groceries don't reduce your flexible money.
+          </p>
+        )}
 
         {scopedExpenses.length === 0 ? (
           <Card>

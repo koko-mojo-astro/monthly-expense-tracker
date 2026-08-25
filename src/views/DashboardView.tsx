@@ -152,8 +152,13 @@ function CycleCard({ cycle, onNavigate }: { cycle: Cycle; onNavigate: (v: ViewId
             {plan.isPast ? 'Spent in cycle' : 'Spent so far'}
           </p>
           <p className="text-sm font-bold tabular-nums sm:text-base">
-            {fmtMoney(plan.spent, currency)}
+            {fmtMoney(plan.flexibleSpent, currency)}
           </p>
+          {plan.groceriesSpent > 0 && (
+            <p className="text-[11px] text-zinc-400">
+              + {fmtMoney(plan.groceriesSpent, currency)} groceries
+            </p>
+          )}
         </div>
         <div>
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -257,11 +262,16 @@ export function DashboardView({
           />
           <StatCard
             label="Daily expenses"
-            value={fmtMoney(plan.spent, currency)}
+            value={fmtMoney(plan.flexibleSpent, currency)}
             icon={BanknoteArrowDown}
             tone="bg-rose-500/10 text-rose-600 dark:text-rose-400"
-            delta={pctChange(plan.spent, prevPlan.spent)}
+            delta={pctChange(plan.flexibleSpent, prevPlan.flexibleSpent)}
             invertDelta
+            subtitle={
+              plan.groceriesSpent > 0
+                ? `+ ${fmtMoney(plan.groceriesSpent, currency)} groceries from set-aside`
+                : undefined
+            }
           />
           <StatCard
             label="Bills & Liabilities"

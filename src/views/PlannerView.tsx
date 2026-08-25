@@ -516,10 +516,23 @@ export function PlannerView({
                   value={(plan.groceriesSpent / plan.groceriesBudget) * 100}
                   className="h-1.5"
                 />
-                <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  Spent {fmtMoney(plan.groceriesSpent, currency)} of{' '}
-                  {fmtMoney(plan.groceriesBudget, currency)} on Groceries
-                  {plan.isPast ? ' in this cycle' : ' so far'}
+                <p
+                  className={cx(
+                    'mt-1 text-[11px]',
+                    plan.groceriesRemaining != null && plan.groceriesRemaining < 0
+                      ? 'text-rose-600 dark:text-rose-400'
+                      : 'text-zinc-500 dark:text-zinc-400',
+                  )}
+                >
+                  Groceries logged {fmtMoney(plan.groceriesSpent, currency)} of{' '}
+                  {fmtMoney(plan.groceriesBudget, currency)}
+                  {plan.groceriesRemaining == null ? (
+                    ''
+                  ) : plan.groceriesRemaining >= 0 ? (
+                    <> — {fmtMoney(plan.groceriesRemaining, currency)} left in the set-aside</>
+                  ) : (
+                    <> — {fmtMoney(-plan.groceriesRemaining, currency)} over the set-aside</>
+                  )}
                 </p>
               </div>
             )}
@@ -587,8 +600,13 @@ export function PlannerView({
                 {plan.isPast ? 'Spent in cycle' : 'Spent so far'}
               </p>
               <p className="text-base font-semibold tabular-nums">
-                {fmtMoney(plan.spent, currency)}
+                {fmtMoney(plan.flexibleSpent, currency)}
               </p>
+              {plan.groceriesSpent > 0 && (
+                <p className="text-[11px] text-zinc-400">
+                  + {fmtMoney(plan.groceriesSpent, currency)} groceries (set-aside)
+                </p>
+              )}
             </div>
             <div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">

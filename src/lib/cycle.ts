@@ -57,13 +57,21 @@ export interface CyclePlan {
   groceriesBudget: number
   /** Actual spend in the Groceries category within the cycle. */
   groceriesSpent: number
+  /** groceriesBudget − groceriesSpent; null when no envelope is set. Negative = overspent. */
+  groceriesRemaining: number | null
   income: number
   committed: number
   flexible: number
   weeks: number
   perWeek: number
-  /** Expenses logged within the cycle up to today (full range for past cycles). */
+  /** All expenses logged within the cycle so far (groceries included). */
   spent: number
+  /**
+   * Spending that draws from flexible money: everything except groceries
+   * covered by the set-aside envelope (groceries overspend falls back to
+   * flexible).
+   */
+  flexibleSpent: number
   available: number
   daysToNextPayday: number
 }
@@ -111,6 +119,13 @@ export function computeCyclePlan(
         until,
       )
 
+  // Groceries draw from their set-aside envelope, not from flexible money.
+  // If the envelope is exhausted, the overspend falls back to flexible.
+  const hasEnvelope = groceriesBudget > 0
+  const fromEnvelope = hasEnvelope ? Math.min(groceriesSpent, groceriesBudget) : 0
+  const flexibleSpent = spent - fromEnvelope
+  const groceriesRemaining = hasEnvelope ? groceriesBudget - groceriesSpent : null
+
   return {
     cycle,
     fundedYm: cycle.fundedYm,
@@ -128,13 +143,15 @@ export function computeCyclePlan(
     paidTotal,
     groceriesBudget,
     groceriesSpent,
+    groceriesRemaining,
     income,
     committed,
     flexible,
     weeks: Math.max(rentDates.length, 1),
     perWeek: flexible / Math.max(rentDates.length, 1),
     spent,
-    available: flexible - spent,
+    flexibleSpent,
+    available: flexible - flexibleSpent,
     daysToNextPayday: diffDays(today, cycle.nextPayday),
   }
 }
