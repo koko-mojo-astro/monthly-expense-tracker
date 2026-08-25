@@ -13,17 +13,17 @@ import { useAppData } from '../context/AppData'
 import type { ViewId } from '../components/Nav'
 import { Button, Card, EmptyState, Field, Input, SectionTitle } from '../components/ui'
 import { cx, fmtDay, fmtMoney, fmtMonth } from '../lib/format'
-import { addMonths, summarizeMonth } from '../lib/stats'
-import { cycleForMonth } from '../lib/cycle'
+import { addMonths, summarizeMonth, type Cycle } from '../lib/stats'
 
 function IncomeCard({
-  ym,
+  cycle,
   onNavigate,
 }: {
-  ym: string
+  cycle: Cycle
   onNavigate?: (v: ViewId) => void
 }) {
-  const { incomes, api, settings } = useAppData()
+  const ym = cycle.fundedYm
+  const { incomes, api } = useAppData()
   const current = incomes[ym]?.amount ?? null
   const [value, setValue] = useState(current != null ? String(current) : '')
   const [saving, setSaving] = useState(false)
@@ -73,36 +73,36 @@ function IncomeCard({
       <p className="mt-2 h-4 text-xs text-emerald-600 dark:text-emerald-400">
         {savedAt > 0 && '✓ Saved'}
       </p>
-      {(() => {
-        const funding = cycleForMonth(ym, settings.paydayDay ?? 24)
-        return (
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
-            <span>
-              Covered by the pay cycle <b>{fmtDay(funding.start)} → {fmtDay(funding.nextPayday)}</b> —
-              plan it in the Planner.
-            </span>
-            {onNavigate && (
-              <button
-                onClick={() => onNavigate('planner')}
-                className="font-medium text-emerald-600 hover:underline dark:text-emerald-400"
-              >
-                Open in Planner →
-              </button>
-            )}
-          </div>
-        )
-      })()}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+        <span>
+          Covered by the pay cycle{' '}
+          <b>
+            {fmtDay(cycle.start)} → {fmtDay(cycle.nextPayday)}
+          </b>{' '}
+          — plan it in the Planner.
+        </span>
+        {onNavigate && (
+          <button
+            onClick={() => onNavigate('planner')}
+            className="font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+          >
+            Open in Planner →
+          </button>
+        )}
+      </div>
     </Card>
   )
 }
 
 export function MonthlyView({
-  ym,
+  cycle,
   onNavigate,
 }: {
-  ym: string
+  /** The globally selected pay cycle; this view manages its funded month. */
+  cycle: Cycle
   onNavigate?: (v: ViewId) => void
 }) {
+  const ym = cycle.fundedYm
   const { liabilities, expenses, incomes, currency, api } = useAppData()
   const monthItems = Object.entries(liabilities[ym] ?? {}).map(([id, l]) => ({ ...l, id }))
   monthItems.sort((a, b) => a.name.localeCompare(b.name))
@@ -149,7 +149,7 @@ export function MonthlyView({
   return (
     <div className="grid gap-5 lg:grid-cols-2">
       <div className="space-y-5">
-        <IncomeCard ym={ym} onNavigate={onNavigate} />
+        <IncomeCard cycle={cycle} onNavigate={onNavigate} />
 
         {/* Net position */}
         <Card className="p-4 sm:p-5">

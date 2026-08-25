@@ -3,9 +3,9 @@ import { ReceiptText, Plus } from 'lucide-react'
 import { useAppData } from '../context/AppData'
 import { ExpenseRow } from '../components/ExpenseRow'
 import { Button, Card, EmptyState, Field, Input, Modal, SectionTitle, Select } from '../components/ui'
-import { cx, fmtDay, fmtMoney, fmtMonth, todayISO } from '../lib/format'
+import { cx, fmtDay, fmtDayShort, fmtMoney, fmtMonth, todayISO } from '../lib/format'
 import { CATEGORIES } from '../lib/categories'
-import { buildCycle, currentCycleStart, currentYm } from '../lib/stats'
+import type { Cycle } from '../lib/stats'
 import type { Expense } from '../lib/types'
 
 interface FormState {
@@ -15,29 +15,36 @@ interface FormState {
   note: string
 }
 
-function emptyForm(ym: string): FormState {
-  const isCurrentMonth = ym === currentYm()
+/**
+ * Default expense date: today when it falls inside the selected pay cycle,
+ * otherwise clamped into the cycle (first day for upcoming cycles, last day
+ * for past ones) so new expenses always land in the cycle you're viewing.
+ */
+function defaultExpenseDate(cycle: Cycle, today: string): string {
+  if (today >= cycle.start && today <= cycle.end) return today
+  return today < cycle.start ? cycle.start : cycle.end
+}
+
+function emptyForm(cycle: Cycle, today: string): FormState {
   return {
     amount: '',
     category: CATEGORIES[0]?.label ?? 'Other',
-    date: isCurrentMonth ? todayISO() : `${ym}-01`,
+    date: defaultExpenseDate(cycle, today),
     note: '',
   }
 }
 
-export function TransactionsView({ ym }: { ym: string }) {
-  const { expenses, currency, api, settings } = useAppData()
-  const [form, setForm] = useState<FormState>(() => emptyForm(ym))
+export function TransactionsView({ cycle }: { cycle: Cycle }) {
+  const { expenses, currency, api } = useAppData()
+  const today = todayISO()
+  const [form, setForm] = useState<FormState>(() => emptyForm(cycle, today))
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Expense | null>(null)
   const [saving, setSaving] = useState(false)
 
-  // Scope: calendar month or the current pay cycle
-  const [scope, setScope] = useState<'month' | 'cycle'>('month')
-  const cycle = useMemo(
-    () => buildCycle(currentCycleStart(settings.paydayDay ?? 24, todayISO()), settings.paydayDay ?? 24),
-    [settings.paydayDay],
-  )
+  // Scope: the selected pay cycle (default) or its funded calendar month
+  const [scope, setScope] = useState<'month' | 'cycle'>('cycle')
+  const ym = cycle.fundedYm
 
   const scopedExpenses = useMemo(() => {
     if (scope === 'month') return expenses.filter((e) => e.date.startsWith(ym))
@@ -72,7 +79,7 @@ export function TransactionsView({ ym }: { ym: string }) {
         date: form.date,
         note: form.note.trim() || undefined,
       })
-      setForm((f) => ({ ...emptyForm(ym), category: f.category, date: f.date }))
+      setForm((f) => ({ ...emptyForm(cycle, today), category: f.category, date: f.date }))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save. Check your connection.')
     } finally {
@@ -183,7 +190,7 @@ export function TransactionsView({ ym }: { ym: string }) {
           title={
             scope === 'month'
               ? `Expenses · ${fmtMonth(ym)}`
-              : `Expenses · pay cycle ${fmtDay(cycle.start)} → ${fmtDay(cycle.nextPayday)}`
+              : `Expenses · pay cycle ${fmtDayShort(cycle.start)} → ${fmtDayShort(cycle.nextPayday)}`
           }
           action={
             <div className="flex items-center gap-3">

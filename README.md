@@ -21,7 +21,9 @@ provider you like.
   unpaid bills for the funded month, groceries set-aside, then shows what's left as
   flexible/emergency savings with per-week allowance and mid-cycle "spent so far".
   Opens on the upcoming cycle when payday is near, quick-adds bills inline, tracks
-  groceries actuals against the budget, and pushes income to the month it funds
+  groceries actuals against the budget, and pushes income to the month it funds.
+  The top-bar navigator switches pay cycles globally — Dashboard, Planner, Transactions
+  and Income & Bills all follow the selected cycle
 - **Daily expenses** — log, edit and delete expenses with categories, dates and notes,
   grouped by day; filter by calendar month **or** by pay cycle
 - **Monthly income** — store your income per month

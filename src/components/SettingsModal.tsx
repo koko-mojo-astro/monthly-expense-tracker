@@ -6,8 +6,8 @@ import { DB_URL } from '../firebase'
 import { cx } from '../lib/format'
 
 const CURRENCIES = [
-  'USD', 'EUR', 'GBP', 'JPY', 'CNY', 'KRW', 'SGD', 'MYR', 'THB', 'VND',
-  'PHP', 'IDR', 'INR', 'AUD', 'CAD', 'CHF', 'MMK', 'LAK', 'KHR',
+  'NZD', 'AUD', 'USD', 'EUR', 'GBP', 'JPY', 'CNY', 'KRW', 'SGD', 'MYR', 'THB', 'VND',
+  'PHP', 'IDR', 'INR', 'CAD', 'CHF', 'MMK', 'LAK', 'KHR',
 ]
 
 export function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {

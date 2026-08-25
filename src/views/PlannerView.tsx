@@ -3,8 +3,6 @@ import {
   CalendarCheck2,
   CalendarPlus,
   CalendarX2,
-  ChevronLeft,
-  ChevronRight,
   Coins,
   CopyPlus,
   Home,
@@ -26,18 +24,14 @@ import {
   Skeleton,
 } from '../components/ui'
 import { cx, fmtDay, fmtMoney, fmtMonth, todayISO } from '../lib/format'
-import { buildCycle, currentCycleStart, paydayISOFor, upcomingPaydayISO } from '../lib/stats'
-import { computeCyclePlan, defaultCycle } from '../lib/cycle'
+import { upcomingPaydayISO, type Cycle } from '../lib/stats'
+import { computeCyclePlan } from '../lib/cycle'
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 function num(v: string): number {
   const n = Number.parseFloat(v)
   return isFinite(n) ? n : 0
-}
-
-function clampOffset(n: number): number {
-  return Math.max(-12, Math.min(3, n))
 }
 
 function shiftYm(ym: string, n: number): string {
@@ -47,12 +41,14 @@ function shiftYm(ym: string, n: number): string {
 }
 
 export function PlannerView({
-  today = todayISO(),
+  cycle,
   onNavigate,
 }: {
-  today?: string
+  /** The globally selected pay cycle (driven by the header navigator). */
+  cycle: Cycle
   onNavigate: (v: ViewId) => void
 }) {
+  const today = todayISO()
   const { settings, incomes, liabilities, expenses, goal, currency, api, loading } = useAppData()
 
   // Assumptions (persisted to /settings once saved)
@@ -78,21 +74,6 @@ export function PlannerView({
     if (!paydayDate) return 24
     return Math.min(Math.max(1, Number(paydayDate.slice(8, 10)) || 24), 31)
   }, [paydayDate])
-
-  // Smart default: near payday, plan the upcoming cycle (the one the arriving
-  // salary funds) instead of the one that is about to end.
-  const defaultOffset = useMemo(() => {
-    return defaultCycle(pd, today).start === currentCycleStart(pd, today) ? 0 : 1
-  }, [pd, today])
-  const [offsetDelta, setOffsetDelta] = useState(0)
-  const [navigated, setNavigated] = useState(false)
-  const offset = navigated ? offsetDelta : defaultOffset
-
-  const cycle = useMemo(() => {
-    const baseYm = currentCycleStart(pd, today).slice(0, 7)
-    const start = paydayISOFor(shiftYm(baseYm, offset), pd)
-    return buildCycle(start, pd)
-  }, [pd, offset, today])
 
   const effSettings = useMemo(
     () => ({
@@ -248,35 +229,9 @@ export function PlannerView({
               <b>{fmtMonth(cycle.fundedYm)}</b>'s money
             </p>
           </div>
-          <div className="ml-auto flex items-center gap-1">
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setOffsetDelta((o) => clampOffset((navigated ? o : defaultOffset) - 1))
-                setNavigated(true)
-              }}
-              aria-label="Previous cycle"
-              className="px-2"
-            >
-              <ChevronLeft size={17} />
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setOffsetDelta((o) => clampOffset((navigated ? o : defaultOffset) + 1))
-                setNavigated(true)
-              }}
-              aria-label="Next cycle"
-              className="px-2"
-            >
-              <ChevronRight size={17} />
-            </Button>
-            {navigated && offset !== defaultOffset && (
-              <Button variant="subtle" onClick={() => setNavigated(false)}>
-                Latest
-              </Button>
-            )}
-          </div>
+          <p className="ml-auto hidden text-xs text-zinc-400 sm:block">
+            Use the arrows in the top bar to switch cycles.
+          </p>
         </div>
       </Card>
 

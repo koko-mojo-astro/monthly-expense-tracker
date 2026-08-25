@@ -17,12 +17,14 @@ import { cx, fmtDay, fmtMoney, fmtMonth, todayISO } from '../lib/format'
 import {
   addMonths,
   categoryTotals,
+  currentYm,
   lastNMonths,
   monthlyCapacity,
   projectGoal,
   summarizeMonth,
+  type Cycle,
 } from '../lib/stats'
-import { computeCyclePlan, defaultCycle } from '../lib/cycle'
+import { computeCyclePlan } from '../lib/cycle'
 import type { ViewId } from '../components/Nav'
 
 function Delta({ value, invert }: { value: number | null; invert?: boolean }) {
@@ -84,11 +86,10 @@ function StatCard({
   )
 }
 
-function CycleCard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
+function CycleCard({ cycle, onNavigate }: { cycle: Cycle; onNavigate: (v: ViewId) => void }) {
   const { settings, incomes, liabilities, expenses, currency } = useAppData()
   const today = todayISO()
-  const pd = settings.paydayDay ?? 24
-  const plan = computeCyclePlan(defaultCycle(pd, today), settings, incomes, liabilities, expenses, today)
+  const plan = computeCyclePlan(cycle, settings, incomes, liabilities, expenses, today)
 
   const badge = plan.isFuture
     ? { label: 'Upcoming', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' }
@@ -174,20 +175,24 @@ function CycleCard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
 }
 
 export function DashboardView({
-  ym,
+  cycle,
   theme,
   onNavigate,
 }: {
-  ym: string
+  /** The globally selected pay cycle (driven by the header navigator). */
+  cycle: Cycle
   theme: 'light' | 'dark'
   onNavigate: (v: ViewId) => void
 }) {
   const { expenses, incomes, liabilities, goal, currency, loading } = useAppData()
+  const ym = cycle.fundedYm
+  const nowYm = currentYm()
 
   const summary = summarizeMonth(expenses, incomes, liabilities, ym)
   const prev = summarizeMonth(expenses, incomes, liabilities, addMonths(ym, -1))
-  const capacityInfo = monthlyCapacity(expenses, incomes, liabilities, ym)
-  const projection = goal ? projectGoal(goal.targetAmount, goal.savedAmount, capacityInfo.capacity, ym, goal.targetDate) : null
+  // Goal pace is always anchored to *today*, not the viewed month.
+  const capacityInfo = monthlyCapacity(expenses, incomes, liabilities, nowYm)
+  const projection = goal ? projectGoal(goal.targetAmount, goal.savedAmount, capacityInfo.capacity, nowYm, goal.targetDate) : null
 
   const monthExpenses = expenses.filter((e) => e.date.startsWith(ym))
   const recent = monthExpenses.slice(0, 5)
@@ -219,7 +224,7 @@ export function DashboardView({
   return (
     <div className="space-y-5">
       {/* Pay cycle card */}
-      <CycleCard onNavigate={onNavigate} />
+      <CycleCard cycle={cycle} onNavigate={onNavigate} />
 
       {/* Summary cards */}
       <section>
