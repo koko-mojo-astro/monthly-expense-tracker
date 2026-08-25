@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   BanknoteArrowDown,
   BanknoteArrowUp,
+  CalendarCheck2,
   CalendarX2,
   PiggyBank,
   ReceiptText,
@@ -12,7 +13,7 @@ import { useAppData } from '../context/AppData'
 import { ExpenseRow } from '../components/ExpenseRow'
 import { CategoryDonut, TrendChart } from '../components/charts'
 import { Button, Card, EmptyState, ProgressBar, SectionTitle, Skeleton } from '../components/ui'
-import { cx, fmtMoney, fmtMonth } from '../lib/format'
+import { cx, fmtDay, fmtMoney, fmtMonth, todayISO } from '../lib/format'
 import {
   addMonths,
   categoryTotals,
@@ -21,6 +22,7 @@ import {
   projectGoal,
   summarizeMonth,
 } from '../lib/stats'
+import { computeCyclePlan, defaultCycle } from '../lib/cycle'
 import type { ViewId } from '../components/Nav'
 
 function Delta({ value, invert }: { value: number | null; invert?: boolean }) {
@@ -82,6 +84,95 @@ function StatCard({
   )
 }
 
+function CycleCard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
+  const { settings, incomes, liabilities, expenses, currency } = useAppData()
+  const today = todayISO()
+  const pd = settings.paydayDay ?? 24
+  const plan = computeCyclePlan(defaultCycle(pd, today), settings, incomes, liabilities, expenses, today)
+
+  const badge = plan.isFuture
+    ? { label: 'Upcoming', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' }
+    : plan.isPast
+      ? { label: 'Past', cls: 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-300' }
+      : { label: 'Current', cls: 'bg-teal-500/15 text-teal-700 dark:text-teal-400' }
+
+  const committedPct = plan.income > 0 ? (plan.committed / plan.income) * 100 : 0
+
+  return (
+    <Card className="p-4 sm:p-5">
+      <div className="flex flex-wrap items-center gap-2.5">
+        <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" aria-hidden>
+          <CalendarCheck2 size={18} />
+        </span>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold">Pay cycle</p>
+            <span className={cx('rounded-full px-2 py-0.5 text-[11px] font-semibold', badge.cls)}>
+              {badge.label}
+            </span>
+          </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            {fmtDay(plan.cycle.start)} → {fmtDay(plan.cycle.nextPayday)} · funds{' '}
+            <b>{fmtMonth(plan.fundedYm)}</b>
+            {plan.isCurrent && plan.daysToNextPayday >= 0 && (
+              <>
+                {' '}
+                · payday in {plan.daysToNextPayday}{' '}
+                {plan.daysToNextPayday === 1 ? 'day' : 'days'}
+              </>
+            )}
+          </p>
+        </div>
+        <Button variant="subtle" onClick={() => onNavigate('planner')} className="ml-auto shrink-0">
+          Open planner
+        </Button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            Income · {fmtMonth(plan.fundedYm)}
+          </p>
+          <p className="text-sm font-bold tabular-nums sm:text-base">
+            {fmtMoney(plan.income, currency)}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Committed (rent+bills+food)</p>
+          <p className="text-sm font-bold tabular-nums sm:text-base">
+            {fmtMoney(plan.committed, currency)}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            {plan.isPast ? 'Spent in cycle' : 'Spent so far'}
+          </p>
+          <p className="text-sm font-bold tabular-nums sm:text-base">
+            {fmtMoney(plan.spent, currency)}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            {plan.isPast ? 'Ended with' : 'Flexible left'}
+          </p>
+          <p
+            className={cx(
+              'text-sm font-bold tabular-nums sm:text-base',
+              plan.available < 0
+                ? 'text-rose-600 dark:text-rose-400'
+                : 'text-emerald-600 dark:text-emerald-400',
+            )}
+          >
+            {fmtMoney(plan.available, currency)}
+          </p>
+        </div>
+      </div>
+
+      <ProgressBar value={committedPct} className="mt-3 h-1.5" />
+    </Card>
+  )
+}
+
 export function DashboardView({
   ym,
   theme,
@@ -127,6 +218,9 @@ export function DashboardView({
 
   return (
     <div className="space-y-5">
+      {/* Pay cycle card */}
+      <CycleCard onNavigate={onNavigate} />
+
       {/* Summary cards */}
       <section>
         <SectionTitle title={`${fmtMonth(ym)} overview`} />

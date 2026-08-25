@@ -151,6 +151,12 @@ export function paydayISOFor(ymStr: string, paydayDay: number): string {
   return `${ymStr}-${String(day).padStart(2, '0')}`
 }
 
+/** The next payday on or after `today` for a given day-of-month. */
+export function upcomingPaydayISO(paydayDay: number, today: string): string {
+  const thisPayday = paydayISOFor(today.slice(0, 7), paydayDay)
+  return today <= thisPayday ? thisPayday : paydayISOFor(addMonths(today.slice(0, 7), 1), paydayDay)
+}
+
 export interface Cycle {
   /** First day of the cycle (payday). */
   start: string

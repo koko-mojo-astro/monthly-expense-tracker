@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ReceiptText, Plus } from 'lucide-react'
 import { useAppData } from '../context/AppData'
 import { ExpenseRow } from '../components/ExpenseRow'
 import { Button, Card, EmptyState, Field, Input, Modal, SectionTitle, Select } from '../components/ui'
 import { cx, fmtDay, fmtMoney, fmtMonth, todayISO } from '../lib/format'
 import { CATEGORIES } from '../lib/categories'
-import { currentYm } from '../lib/stats'
+import { buildCycle, currentCycleStart, currentYm } from '../lib/stats'
 import type { Expense } from '../lib/types'
 
 interface FormState {
@@ -26,17 +26,28 @@ function emptyForm(ym: string): FormState {
 }
 
 export function TransactionsView({ ym }: { ym: string }) {
-  const { expenses, currency, api } = useAppData()
+  const { expenses, currency, api, settings } = useAppData()
   const [form, setForm] = useState<FormState>(() => emptyForm(ym))
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Expense | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const monthExpenses = expenses.filter((e) => e.date.startsWith(ym))
-  const total = monthExpenses.reduce((acc, e) => acc + e.amount, 0)
+  // Scope: calendar month or the current pay cycle
+  const [scope, setScope] = useState<'month' | 'cycle'>('month')
+  const cycle = useMemo(
+    () => buildCycle(currentCycleStart(settings.paydayDay ?? 24, todayISO()), settings.paydayDay ?? 24),
+    [settings.paydayDay],
+  )
+
+  const scopedExpenses = useMemo(() => {
+    if (scope === 'month') return expenses.filter((e) => e.date.startsWith(ym))
+    return expenses.filter((e) => e.date >= cycle.start && e.date <= cycle.end)
+  }, [expenses, scope, ym, cycle])
+
+  const total = scopedExpenses.reduce((acc, e) => acc + e.amount, 0)
 
   const groups = new Map<string, { items: Expense[]; total: number }>()
-  for (const e of monthExpenses) {
+  for (const e of scopedExpenses) {
     const g = groups.get(e.date) ?? { items: [], total: 0 }
     g.items.push(e)
     g.total += e.amount
@@ -169,19 +180,41 @@ export function TransactionsView({ ym }: { ym: string }) {
       {/* Month list */}
       <section>
         <SectionTitle
-          title={`Expenses · ${fmtMonth(ym)}`}
+          title={
+            scope === 'month'
+              ? `Expenses · ${fmtMonth(ym)}`
+              : `Expenses · pay cycle ${fmtDay(cycle.start)} → ${fmtDay(cycle.nextPayday)}`
+          }
           action={
-            <span className="text-sm font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">
-              Total: {fmtMoney(total, currency)}
-            </span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center rounded-lg border border-zinc-200 p-0.5 text-xs dark:border-zinc-800">
+                {(['month', 'cycle'] as const).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setScope(s)}
+                    className={cx(
+                      'rounded-md px-2.5 py-1 font-medium transition',
+                      scope === s
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50',
+                    )}
+                  >
+                    {s === 'month' ? 'Month' : 'Pay cycle'}
+                  </button>
+                ))}
+              </div>
+              <span className="text-sm font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">
+                Total: {fmtMoney(total, currency)}
+              </span>
+            </div>
           }
         />
 
-        {monthExpenses.length === 0 ? (
+        {scopedExpenses.length === 0 ? (
           <Card>
             <EmptyState
               icon={<ReceiptText size={22} />}
-              title={`No transactions in ${ym}`}
+              title={scope === 'month' ? `No transactions in ${ym}` : 'No transactions this pay cycle'}
               subtitle="Use the form above to log your first daily expense."
             />
           </Card>

@@ -77,7 +77,7 @@ function Shell() {
             {view === 'dashboard' && <DashboardView ym={ym} theme={theme} onNavigate={setView} />}
             {view === 'planner' && <PlannerView today={todayISO()} onNavigate={setView} />}
             {view === 'transactions' && <TransactionsView key={ym} ym={ym} />}
-            {view === 'monthly' && <MonthlyView key={ym} ym={ym} />}
+            {view === 'monthly' && <MonthlyView key={ym} ym={ym} onNavigate={setView} />}
             {view === 'goal' && <GoalView key={ym} ym={ym} />}
           </main>
         </div>
