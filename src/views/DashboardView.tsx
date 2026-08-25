@@ -112,7 +112,7 @@ function CycleCard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
             </span>
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            {fmtDay(plan.cycle.start)} → {fmtDay(plan.cycle.end)} · funds{' '}
+            {fmtDay(plan.cycle.start)} → {fmtDay(plan.cycle.nextPayday)} · funds{' '}
             <b>{fmtMonth(plan.fundedYm)}</b>
             {plan.isCurrent && plan.daysToNextPayday >= 0 && (
               <>

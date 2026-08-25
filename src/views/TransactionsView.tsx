@@ -183,7 +183,7 @@ export function TransactionsView({ ym }: { ym: string }) {
           title={
             scope === 'month'
               ? `Expenses · ${fmtMonth(ym)}`
-              : `Expenses · pay cycle ${fmtDay(cycle.start)} → ${fmtDay(cycle.end)}`
+              : `Expenses · pay cycle ${fmtDay(cycle.start)} → ${fmtDay(cycle.nextPayday)}`
           }
           action={
             <div className="flex items-center gap-3">

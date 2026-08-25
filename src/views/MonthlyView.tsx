@@ -78,7 +78,7 @@ function IncomeCard({
         return (
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
             <span>
-              Covered by the pay cycle <b>{fmtDay(funding.start)} → {fmtDay(funding.end)}</b> —
+              Covered by the pay cycle <b>{fmtDay(funding.start)} → {fmtDay(funding.nextPayday)}</b> —
               plan it in the Planner.
             </span>
             {onNavigate && (

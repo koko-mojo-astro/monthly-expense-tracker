@@ -26,7 +26,7 @@ import {
   Skeleton,
 } from '../components/ui'
 import { cx, fmtDay, fmtMoney, fmtMonth, todayISO } from '../lib/format'
-import { buildCycle, currentCycleStart, paydayISOFor } from '../lib/stats'
+import { buildCycle, currentCycleStart, paydayISOFor, upcomingPaydayISO } from '../lib/stats'
 import { computeCyclePlan, defaultCycle } from '../lib/cycle'
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -56,7 +56,7 @@ export function PlannerView({
   const { settings, incomes, liabilities, expenses, goal, currency, api, loading } = useAppData()
 
   // Assumptions (persisted to /settings once saved)
-  const [paydayDay, setPaydayDay] = useState('24')
+  const [paydayDate, setPaydayDate] = useState('')
   const [weeklyRent, setWeeklyRent] = useState('')
   const [rentWeekday, setRentWeekday] = useState('1')
   const [groceries, setGroceries] = useState('')
@@ -65,14 +65,19 @@ export function PlannerView({
 
   useEffect(() => {
     if (assumptionsLoaded.current || loading) return
-    setPaydayDay(String(settings.paydayDay ?? 24))
+    setPaydayDate(upcomingPaydayISO(settings.paydayDay ?? 24, today))
     setWeeklyRent(settings.weeklyRent != null ? String(settings.weeklyRent) : '')
     setRentWeekday(String(settings.rentWeekday ?? 1))
     setGroceries(settings.groceriesBudget != null ? String(settings.groceriesBudget) : '')
     assumptionsLoaded.current = true
-  }, [settings, loading])
+  }, [settings, loading, today])
 
-  const pd = Math.min(Math.max(1, Math.round(num(paydayDay) || 24)), 28)
+  // Payday is set as a real date (e.g. 25 Aug); the next payday is the same
+  // date next month (25 Sep). Only the day-of-month is persisted.
+  const pd = useMemo(() => {
+    if (!paydayDate) return 24
+    return Math.min(Math.max(1, Number(paydayDate.slice(8, 10)) || 24), 31)
+  }, [paydayDate])
 
   // Smart default: near payday, plan the upcoming cycle (the one the arriving
   // salary funds) instead of the one that is about to end.
@@ -239,8 +244,8 @@ export function PlannerView({
               </span>
             </div>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              {fmtDay(cycle.start)} → {fmtDay(cycle.end)} · <b>{fmtMonth(cycle.fundedYm)}</b>'s
-              money
+              Payday {fmtDay(cycle.start)} → next payday {fmtDay(cycle.nextPayday)} ·{' '}
+              <b>{fmtMonth(cycle.fundedYm)}</b>'s money
             </p>
           </div>
           <div className="ml-auto flex items-center gap-1">
@@ -317,15 +322,15 @@ export function PlannerView({
           }
         />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Payday (day of month)" hint="Your salary lands around this day.">
+          <Field
+            label="Payday date"
+            hint="Pick a payday — e.g. 25 Aug — and the next one will be 25 Sep."
+          >
             <Input
-              inputMode="numeric"
-              type="number"
-              min="1"
-              max="28"
-              value={paydayDay}
+              type="date"
+              value={paydayDate}
               onChange={(e) => {
-                setPaydayDay(e.target.value)
+                setPaydayDate(e.target.value)
                 setAssumptionsDirty(true)
               }}
             />
