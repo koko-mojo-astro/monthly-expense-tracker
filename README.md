@@ -12,16 +12,20 @@ provider you like.
 
 - **Authentication** — Google one-tap sign-in plus email/password registration via
   Firebase Auth; every account gets an isolated data folder (`users/{uid}/…`)
-- **Dashboard** — income, expenses, bills and net savings for any month, plus category
-  breakdown (donut), 6-month trend chart and recent transactions — with an always-on
-  **pay-cycle summary card** (income, committed, spent so far, flexible left)
+- **Dashboard** — a pay-cycle summary card plus a cycle overview that mirrors the
+  Planner exactly (income, daily expenses, bills, flexible left), category breakdown
+  (donut), 6-month trend chart and recent transactions
 - **Pay-cycle planner** — plans your money the way you actually live it: from one payday
   to the next rather than calendar months. Enter expected take-home and it auto-splits:
   weekly rent (counts every rent day that lands in the cycle — 4 or 5 automatically),
-  unpaid bills for the funded month, groceries set-aside, then shows what's left as
+  unpaid bills for the funded month (paid bills stay committed — the money is
+  already gone),   groceries set-aside (logged Groceries expenses draw down the envelope instead of
+  flexible money — only overspend falls back to flexible), then shows what's left as
   flexible/emergency savings with per-week allowance and mid-cycle "spent so far".
   Opens on the upcoming cycle when payday is near, quick-adds bills inline, tracks
-  groceries actuals against the budget, and pushes income to the month it funds
+  groceries actuals against the budget, and pushes income to the month it funds.
+  The top-bar navigator switches pay cycles globally — Dashboard, Planner, Transactions
+  and Income & Bills all follow the selected cycle
 - **Daily expenses** — log, edit and delete expenses with categories, dates and notes,
   grouped by day; filter by calendar month **or** by pay cycle
 - **Monthly income** — store your income per month

@@ -3,9 +3,11 @@ import { CalendarClock, CheckCircle2, PiggyBank, Sparkles, Target, TrendingUp, T
 import { useAppData } from '../context/AppData'
 import { Button, Card, EmptyState, Field, Input, ProgressBar, SectionTitle } from '../components/ui'
 import { cx, fmtMoney, fmtMonth, todayISO } from '../lib/format'
-import { monthlyCapacity, projectGoal } from '../lib/stats'
+import { currentYm, monthlyCapacity, projectGoal } from '../lib/stats'
 
-export function GoalView({ ym }: { ym: string }) {
+export function GoalView() {
+  // Goal pace is always projected from today, regardless of the viewed cycle.
+  const ym = currentYm()
   const { goal, expenses, incomes, liabilities, currency, api } = useAppData()
 
   const [title, setTitle] = useState('')

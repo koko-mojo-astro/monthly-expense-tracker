@@ -47,3 +47,10 @@ export function fmtMonthShort(ym: string): string {
     new Date(y ?? 1970, (m ?? 1) - 1, 1),
   )
 }
+
+/** "26 Aug" from YYYY-MM-DD */
+export function fmtDayShort(iso: string): string {
+  return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(
+    parseISODate(iso),
+  )
+}

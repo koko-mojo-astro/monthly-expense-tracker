@@ -49,17 +49,29 @@ export interface CyclePlan {
   allBills: Liability[]
   unpaidBills: Liability[]
   paidBills: Liability[]
+  /** All bills in the funded month — paid ones stay committed: the money is gone. */
   billsTotal: number
+  /** Portion of bills not yet paid. */
+  unpaidTotal: number
+  paidTotal: number
   groceriesBudget: number
   /** Actual spend in the Groceries category within the cycle. */
   groceriesSpent: number
+  /** groceriesBudget − groceriesSpent; null when no envelope is set. Negative = overspent. */
+  groceriesRemaining: number | null
   income: number
   committed: number
   flexible: number
   weeks: number
   perWeek: number
-  /** Expenses logged within the cycle up to today (full range for past cycles). */
+  /** All expenses logged within the cycle so far (groceries included). */
   spent: number
+  /**
+   * Spending that draws from flexible money: everything except groceries
+   * covered by the set-aside envelope (groceries overspend falls back to
+   * flexible).
+   */
+  flexibleSpent: number
   available: number
   daysToNextPayday: number
 }
@@ -85,7 +97,10 @@ export function computeCyclePlan(
   }))
   const unpaidBills = allBills.filter((l) => !l.paid)
   const paidBills = allBills.filter((l) => l.paid)
-  const billsTotal = unpaidBills.reduce((acc, l) => acc + l.amount, 0)
+  // Paid bills remain committed — marking them paid doesn't free up money.
+  const billsTotal = allBills.reduce((acc, l) => acc + l.amount, 0)
+  const unpaidTotal = unpaidBills.reduce((acc, l) => acc + l.amount, 0)
+  const paidTotal = paidBills.reduce((acc, l) => acc + l.amount, 0)
 
   const income = incomes[cycle.fundedYm]?.amount ?? 0
   const committed = rentTotal + billsTotal + groceriesBudget
@@ -104,6 +119,13 @@ export function computeCyclePlan(
         until,
       )
 
+  // Groceries draw from their set-aside envelope, not from flexible money.
+  // If the envelope is exhausted, the overspend falls back to flexible.
+  const hasEnvelope = groceriesBudget > 0
+  const fromEnvelope = hasEnvelope ? Math.min(groceriesSpent, groceriesBudget) : 0
+  const flexibleSpent = spent - fromEnvelope
+  const groceriesRemaining = hasEnvelope ? groceriesBudget - groceriesSpent : null
+
   return {
     cycle,
     fundedYm: cycle.fundedYm,
@@ -117,15 +139,19 @@ export function computeCyclePlan(
     unpaidBills,
     paidBills,
     billsTotal,
+    unpaidTotal,
+    paidTotal,
     groceriesBudget,
     groceriesSpent,
+    groceriesRemaining,
     income,
     committed,
     flexible,
     weeks: Math.max(rentDates.length, 1),
     perWeek: flexible / Math.max(rentDates.length, 1),
     spent,
-    available: flexible - spent,
+    flexibleSpent,
+    available: flexible - flexibleSpent,
     daysToNextPayday: diffDays(today, cycle.nextPayday),
   }
 }

@@ -1,31 +1,66 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight, LogOut, Moon, Settings, Sun, Wallet } from 'lucide-react'
 import type { User } from 'firebase/auth'
-import { fmtMonth } from '../lib/format'
-import { currentYm, addMonths } from '../lib/stats'
+import { cx, fmtDayShort } from '../lib/format'
+import type { Cycle } from '../lib/stats'
 import type { Theme } from '../hooks/useTheme'
 
+export type CycleState = 'past' | 'current' | 'future'
+
+export function cycleStateOf(cycle: Cycle, today: string): CycleState {
+  if (cycle.end < today) return 'past'
+  if (cycle.start > today) return 'future'
+  return 'current'
+}
+
+const BADGES: Record<CycleState, { label: string; cls: string; dot: string }> = {
+  past: {
+    label: 'Past',
+    cls: 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-300',
+    dot: 'bg-zinc-400',
+  },
+  current: {
+    label: 'Current',
+    cls: 'bg-teal-500/15 text-teal-700 dark:text-teal-400',
+    dot: 'bg-teal-500',
+  },
+  future: {
+    label: 'Upcoming',
+    cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
+    dot: 'bg-emerald-500',
+  },
+}
+
 export function Header({
-  ym,
-  setYm,
+  cycle,
+  cycleState,
+  canGoNext,
+  onPrevCycle,
+  onNextCycle,
+  onResetCycle,
+  showReset,
   theme,
   toggleTheme,
   onOpenSettings,
   user,
   onSignOut,
 }: {
-  ym: string
-  setYm: (ym: string) => void
+  cycle: Cycle
+  cycleState: CycleState
+  canGoNext: boolean
+  onPrevCycle: () => void
+  onNextCycle: () => void
+  onResetCycle: () => void
+  showReset: boolean
   theme: Theme
   toggleTheme: () => void
   onOpenSettings: () => void
   user: User
   onSignOut: () => void
 }) {
-  const atCurrent = ym >= currentYm()
   const [menuOpen, setMenuOpen] = useState(false)
-
   const displayName = user.displayName || user.email || 'Account'
+  const badge = BADGES[cycleState]
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-white/80 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/80">
@@ -43,21 +78,41 @@ export function Header({
         </div>
 
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          {/* Pay-cycle navigator */}
           <div className="flex items-center rounded-xl border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
             <button
-              onClick={() => setYm(addMonths(ym, -1))}
-              aria-label="Previous month"
+              onClick={onPrevCycle}
+              aria-label="Previous pay cycle"
               className="rounded-l-xl p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50"
             >
               <ChevronLeft size={17} />
             </button>
-            <span className="order-none min-w-[7.5rem] px-1 text-center text-sm font-semibold tabular-nums">
-              {fmtMonth(ym)}
-            </span>
             <button
-              onClick={() => !atCurrent && setYm(addMonths(ym, 1))}
-              disabled={atCurrent}
-              aria-label="Next month"
+              onClick={onResetCycle}
+              disabled={!showReset}
+              title={showReset ? 'Back to the current cycle' : undefined}
+              className="flex min-w-0 items-center gap-1.5 px-1 py-1.5 text-center disabled:cursor-default"
+            >
+              <span
+                className={cx('hidden size-1.5 shrink-0 rounded-full sm:block', badge.dot)}
+                aria-hidden
+              />
+              <span className="truncate text-sm font-semibold tabular-nums">
+                {fmtDayShort(cycle.start)} – {fmtDayShort(cycle.nextPayday)}
+              </span>
+              <span
+                className={cx(
+                  'hidden shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold md:block',
+                  badge.cls,
+                )}
+              >
+                {badge.label}
+              </span>
+            </button>
+            <button
+              onClick={onNextCycle}
+              disabled={!canGoNext}
+              aria-label="Next pay cycle"
               className="rounded-r-xl p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 disabled:pointer-events-none disabled:opacity-40 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50"
             >
               <ChevronRight size={17} />

@@ -16,13 +16,15 @@ import { Button, Card, EmptyState, ProgressBar, SectionTitle, Skeleton } from '.
 import { cx, fmtDay, fmtMoney, fmtMonth, todayISO } from '../lib/format'
 import {
   addMonths,
-  categoryTotals,
+  buildCycle,
+  currentYm,
   lastNMonths,
   monthlyCapacity,
   projectGoal,
   summarizeMonth,
+  type Cycle,
 } from '../lib/stats'
-import { computeCyclePlan, defaultCycle } from '../lib/cycle'
+import { computeCyclePlan } from '../lib/cycle'
 import type { ViewId } from '../components/Nav'
 
 function Delta({ value, invert }: { value: number | null; invert?: boolean }) {
@@ -56,6 +58,7 @@ function StatCard({
   tone,
   delta,
   invertDelta,
+  subtitle,
 }: {
   label: string
   value: string
@@ -63,6 +66,7 @@ function StatCard({
   tone: string
   delta?: number | null
   invertDelta?: boolean
+  subtitle?: string
 }) {
   return (
     <Card className="p-4">
@@ -73,6 +77,7 @@ function StatCard({
         <div className="min-w-0">
           <p className="truncate text-xs font-medium text-zinc-500 dark:text-zinc-400">{label}</p>
           <p className="truncate text-lg font-bold tabular-nums">{value}</p>
+          {subtitle && <p className="truncate text-[11px] text-zinc-400">{subtitle}</p>}
         </div>
       </div>
       {(delta != null) && (
@@ -84,11 +89,10 @@ function StatCard({
   )
 }
 
-function CycleCard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
+function CycleCard({ cycle, onNavigate }: { cycle: Cycle; onNavigate: (v: ViewId) => void }) {
   const { settings, incomes, liabilities, expenses, currency } = useAppData()
   const today = todayISO()
-  const pd = settings.paydayDay ?? 24
-  const plan = computeCyclePlan(defaultCycle(pd, today), settings, incomes, liabilities, expenses, today)
+  const plan = computeCyclePlan(cycle, settings, incomes, liabilities, expenses, today)
 
   const badge = plan.isFuture
     ? { label: 'Upcoming', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' }
@@ -148,8 +152,13 @@ function CycleCard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
             {plan.isPast ? 'Spent in cycle' : 'Spent so far'}
           </p>
           <p className="text-sm font-bold tabular-nums sm:text-base">
-            {fmtMoney(plan.spent, currency)}
+            {fmtMoney(plan.flexibleSpent, currency)}
           </p>
+          {plan.groceriesSpent > 0 && (
+            <p className="text-[11px] text-zinc-400">
+              + {fmtMoney(plan.groceriesSpent, currency)} groceries
+            </p>
+          )}
         </div>
         <div>
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -174,24 +183,43 @@ function CycleCard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
 }
 
 export function DashboardView({
-  ym,
+  cycle,
   theme,
   onNavigate,
 }: {
-  ym: string
+  /** The globally selected pay cycle (driven by the header navigator). */
+  cycle: Cycle
   theme: 'light' | 'dark'
   onNavigate: (v: ViewId) => void
 }) {
-  const { expenses, incomes, liabilities, goal, currency, loading } = useAppData()
+  const { expenses, incomes, liabilities, goal, currency, settings, loading } = useAppData()
+  const today = todayISO()
+  const ym = cycle.fundedYm
+  const nowYm = currentYm()
 
-  const summary = summarizeMonth(expenses, incomes, liabilities, ym)
-  const prev = summarizeMonth(expenses, incomes, liabilities, addMonths(ym, -1))
-  const capacityInfo = monthlyCapacity(expenses, incomes, liabilities, ym)
-  const projection = goal ? projectGoal(goal.targetAmount, goal.savedAmount, capacityInfo.capacity, ym, goal.targetDate) : null
+  // Overview numbers come from the same plan the Planner shows, so every
+  // surface reconciles: income, committed (rent+bills+groceries), flexible.
+  const pd = settings.paydayDay ?? 24
+  const plan = computeCyclePlan(cycle, settings, incomes, liabilities, expenses, today)
+  const prevPlan = computeCyclePlan(
+    buildCycle(addMonths(cycle.start, -1), pd),
+    settings,
+    incomes,
+    liabilities,
+    expenses,
+    today,
+  )
 
-  const monthExpenses = expenses.filter((e) => e.date.startsWith(ym))
-  const recent = monthExpenses.slice(0, 5)
-  const catTotals = categoryTotals(expenses, ym)
+  // Goal pace is always anchored to *today*, not the viewed month.
+  const capacityInfo = monthlyCapacity(expenses, incomes, liabilities, nowYm)
+  const projection = goal ? projectGoal(goal.targetAmount, goal.savedAmount, capacityInfo.capacity, nowYm, goal.targetDate) : null
+
+  const cycleExpenses = expenses.filter((e) => e.date >= cycle.start && e.date <= cycle.end)
+  const recent = cycleExpenses.slice(0, 5)
+  const catTotals = new Map<string, number>()
+  for (const e of cycleExpenses) {
+    catTotals.set(e.category, (catTotals.get(e.category) ?? 0) + e.amount)
+  }
 
   const trendYms = lastNMonths(ym, 6)
   const trendSummaries = trendYms.map((m) => summarizeMonth(expenses, incomes, liabilities, m))
@@ -219,39 +247,51 @@ export function DashboardView({
   return (
     <div className="space-y-5">
       {/* Pay cycle card */}
-      <CycleCard onNavigate={onNavigate} />
+      <CycleCard cycle={cycle} onNavigate={onNavigate} />
 
-      {/* Summary cards */}
+      {/* Overview — identical to the Planner's numbers */}
       <section>
-        <SectionTitle title={`${fmtMonth(ym)} overview`} />
+        <SectionTitle title="Cycle overview" />
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           <StatCard
-            label="Income"
-            value={fmtMoney(summary.income, currency)}
+            label={`Income · ${fmtMonth(ym)}`}
+            value={fmtMoney(plan.income, currency)}
             icon={BanknoteArrowUp}
             tone="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-            delta={pctChange(summary.income, prev.income)}
+            delta={pctChange(plan.income, prevPlan.income)}
           />
           <StatCard
-            label="Expenses"
-            value={fmtMoney(summary.expenses, currency)}
+            label="Daily expenses"
+            value={fmtMoney(plan.flexibleSpent, currency)}
             icon={BanknoteArrowDown}
             tone="bg-rose-500/10 text-rose-600 dark:text-rose-400"
-            delta={pctChange(summary.expenses, prev.expenses)}
+            delta={pctChange(plan.flexibleSpent, prevPlan.flexibleSpent)}
             invertDelta
+            subtitle={
+              plan.groceriesSpent > 0
+                ? `+ ${fmtMoney(plan.groceriesSpent, currency)} groceries from set-aside`
+                : undefined
+            }
           />
           <StatCard
             label="Bills & Liabilities"
-            value={fmtMoney(summary.liabilities, currency)}
+            value={fmtMoney(plan.billsTotal, currency)}
             icon={CalendarX2}
             tone="bg-amber-500/10 text-amber-600 dark:text-amber-400"
+            subtitle={
+              plan.unpaidBills.length > 0
+                ? `${plan.unpaidBills.length} unpaid · ${fmtMoney(plan.unpaidTotal, currency)} to pay`
+                : plan.allBills.length > 0
+                  ? 'All paid'
+                  : 'None tracked'
+            }
           />
           <StatCard
-            label="Net Savings"
-            value={fmtMoney(summary.net, currency)}
+            label="Flexible left"
+            value={fmtMoney(plan.available, currency)}
             icon={PiggyBank}
             tone={
-              summary.net >= 0
+              plan.available >= 0
                 ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400'
                 : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
             }
@@ -329,7 +369,7 @@ export function DashboardView({
         <SectionTitle
           title="Recent transactions"
           action={
-            monthExpenses.length > 5 ? (
+            cycleExpenses.length > 5 ? (
               <button
                 onClick={() => onNavigate('transactions')}
                 className="text-sm font-medium text-emerald-600 hover:underline dark:text-emerald-400"
@@ -343,7 +383,7 @@ export function DashboardView({
           {recent.length === 0 ? (
             <EmptyState
               icon={<ReceiptText size={22} />}
-              title="Nothing logged yet this month"
+              title="Nothing logged yet this cycle"
               subtitle="Daily expenses will appear here as soon as you add them."
               action={<Button variant="subtle" onClick={() => onNavigate('transactions')}>Log an expense</Button>}
             />
