@@ -13,15 +13,14 @@ import { useAppData } from '../context/AppData'
 import { ExpenseRow } from '../components/ExpenseRow'
 import { CategoryDonut, TrendChart } from '../components/charts'
 import { Button, Card, EmptyState, ProgressBar, SectionTitle, Skeleton } from '../components/ui'
-import { cx, fmtDay, fmtMoney, fmtMonth, todayISO } from '../lib/format'
+import { cx, fmtDay, fmtMoney, fmtMonth, fmtMonthShort, todayISO } from '../lib/format'
 import {
   addMonths,
   buildCycle,
   currentYm,
-  lastNMonths,
+  paydayISOFor,
   monthlyCapacity,
   projectGoal,
-  summarizeMonth,
   type Cycle,
 } from '../lib/stats'
 import { computeCyclePlan } from '../lib/cycle'
@@ -148,15 +147,22 @@ function CycleCard({ cycle, onNavigate }: { cycle: Cycle; onNavigate: (v: ViewId
           </p>
         </div>
         <div>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-            {plan.isPast ? 'Spent in cycle' : 'Spent so far'}
-          </p>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Set-aside used</p>
           <p className="text-sm font-bold tabular-nums sm:text-base">
-            {fmtMoney(plan.flexibleSpent, currency)}
+            {fmtMoney(plan.envelopeSpent, currency)}
           </p>
-          {plan.groceriesSpent > 0 && (
-            <p className="text-[11px] text-zinc-400">
-              + {fmtMoney(plan.groceriesSpent, currency)} groceries
+          {plan.envelopeRemaining != null && (
+            <p
+              className={cx(
+                'text-[11px]',
+                plan.envelopeRemaining < 0
+                  ? 'text-rose-600 dark:text-rose-400'
+                  : 'text-zinc-400',
+              )}
+            >
+              {plan.envelopeRemaining >= 0
+                ? `${fmtMoney(plan.envelopeRemaining, currency)} left`
+                : `${fmtMoney(-plan.envelopeRemaining, currency)} over`}
             </p>
           )}
         </div>
@@ -221,8 +227,18 @@ export function DashboardView({
     catTotals.set(e.category, (catTotals.get(e.category) ?? 0) + e.amount)
   }
 
-  const trendYms = lastNMonths(ym, 6)
-  const trendSummaries = trendYms.map((m) => summarizeMonth(expenses, incomes, liabilities, m))
+  // Trend across the last 6 pay cycles (oldest -> selected)
+  const trendCycles = Array.from({ length: 6 }, (_, i) => {
+    const start = paydayISOFor(addMonths(cycle.start.slice(0, 7), i - 5), pd)
+    return computeCyclePlan(
+      buildCycle(start, pd),
+      settings,
+      incomes,
+      liabilities,
+      expenses,
+      today,
+    )
+  })
 
   const progress =
     goal && goal.targetAmount > 0 ? (Math.min(goal.savedAmount, goal.targetAmount) / goal.targetAmount) * 100 : 0
@@ -251,36 +267,37 @@ export function DashboardView({
 
       {/* Overview — identical to the Planner's numbers */}
       <section>
-        <SectionTitle title="Cycle overview" />
+        <SectionTitle title={`Cycle overview · funds ${fmtMonth(ym)}`} />
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           <StatCard
-            label={`Income · ${fmtMonth(ym)}`}
+            label="Income"
             value={fmtMoney(plan.income, currency)}
             icon={BanknoteArrowUp}
             tone="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+            subtitle={fmtMonth(ym)}
             delta={pctChange(plan.income, prevPlan.income)}
           />
           <StatCard
-            label="Daily expenses"
-            value={fmtMoney(plan.flexibleSpent, currency)}
+            label="Daily spending"
+            value={fmtMoney(plan.envelopeSpent, currency)}
             icon={BanknoteArrowDown}
             tone="bg-rose-500/10 text-rose-600 dark:text-rose-400"
-            delta={pctChange(plan.flexibleSpent, prevPlan.flexibleSpent)}
-            invertDelta
             subtitle={
-              plan.groceriesSpent > 0
-                ? `+ ${fmtMoney(plan.groceriesSpent, currency)} groceries from set-aside`
-                : undefined
+              plan.envelopeRemaining == null
+                ? 'no set-aside set'
+                : plan.envelopeRemaining >= 0
+                  ? `${fmtMoney(plan.envelopeRemaining, currency)} left of ${fmtMoney(plan.envelopeBudget, currency)}`
+                  : `${fmtMoney(-plan.envelopeRemaining, currency)} over set-aside`
             }
           />
           <StatCard
-            label="Bills & Liabilities"
+            label="Bills"
             value={fmtMoney(plan.billsTotal, currency)}
             icon={CalendarX2}
             tone="bg-amber-500/10 text-amber-600 dark:text-amber-400"
             subtitle={
               plan.unpaidBills.length > 0
-                ? `${plan.unpaidBills.length} unpaid · ${fmtMoney(plan.unpaidTotal, currency)} to pay`
+                ? `${fmtMoney(plan.unpaidTotal, currency)} to pay`
                 : plan.allBills.length > 0
                   ? 'All paid'
                   : 'None tracked'
@@ -294,6 +311,11 @@ export function DashboardView({
               plan.available >= 0
                 ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400'
                 : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+            }
+            subtitle={
+              plan.isCurrent && plan.daysLeftInCycle > 0 && plan.available > 0
+                ? `≈ ${fmtMoney(plan.available / plan.daysLeftInCycle, currency)}/day · ${plan.daysLeftInCycle} days left`
+                : undefined
             }
           />
         </div>
@@ -348,15 +370,15 @@ export function DashboardView({
           {loading ? <Skeleton className="h-48" /> : <CategoryDonut totals={catTotals} currency={currency} dark={theme === 'dark'} />}
         </Card>
         <Card className="p-4 sm:p-5">
-          <SectionTitle title="Last 6 months" />
+          <SectionTitle title="Last 6 pay cycles" />
           {loading ? (
             <Skeleton className="h-64" />
           ) : (
             <TrendChart
-              yms={trendYms}
-              income={trendSummaries.map((s) => s.income)}
-              expenses={trendSummaries.map((s) => s.expenses)}
-              liabilities={trendSummaries.map((s) => s.liabilities)}
+              labels={trendCycles.map((t) => fmtMonthShort(t.fundedYm))}
+              income={trendCycles.map((t) => t.income)}
+              spending={trendCycles.map((t) => t.envelopeSpent)}
+              bills={trendCycles.map((t) => t.billsTotal)}
               currency={currency}
               dark={theme === 'dark'}
             />

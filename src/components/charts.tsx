@@ -10,7 +10,7 @@ import {
 } from 'chart.js'
 import { Bar, Doughnut } from 'react-chartjs-2'
 import { categoryOf } from '../lib/categories'
-import { fmtMoney, fmtMonthShort } from '../lib/format'
+import { fmtMoney } from '../lib/format'
 
 ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend)
 
@@ -108,28 +108,29 @@ export function CategoryDonut({
 }
 
 export function TrendChart({
-  yms,
+  labels,
   income,
-  expenses,
-  liabilities,
+  spending,
+  bills,
   currency,
   dark,
 }: {
-  yms: string[]
+  /** One label per pay cycle (e.g. funded-month short names). */
+  labels: string[]
   income: number[]
-  expenses: number[]
-  liabilities: number[]
+  spending: number[]
+  bills: number[]
   currency: string
   dark: boolean
 }) {
   const t = useChartTheme(dark)
 
   const data = {
-    labels: yms.map((ym) => fmtMonthShort(ym)),
+    labels,
     datasets: [
       { label: 'Income', data: income, backgroundColor: '#10b981', borderRadius: 5 },
-      { label: 'Expenses', data: expenses, backgroundColor: '#f43f5e', borderRadius: 5 },
-      { label: 'Bills', data: liabilities, backgroundColor: '#f59e0b', borderRadius: 5 },
+      { label: 'Daily spending', data: spending, backgroundColor: '#f43f5e', borderRadius: 5 },
+      { label: 'Bills', data: bills, backgroundColor: '#f59e0b', borderRadius: 5 },
     ],
   }
 

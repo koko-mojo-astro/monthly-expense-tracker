@@ -319,7 +319,7 @@ export function PlannerView({
               ))}
             </Select>
           </Field>
-          <Field label="Groceries set-aside">
+          <Field label="Daily spending set-aside" hint="All logged expenses draw from this first.">
             <Input
               inputMode="decimal"
               type="number"
@@ -502,36 +502,36 @@ export function PlannerView({
               <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-green-500/10 text-green-600 dark:text-green-400" aria-hidden>
                 <ShoppingCart size={15} />
               </span>
-              <p className="min-w-0 flex-1 truncate text-sm font-medium">Groceries set-aside</p>
+              <p className="min-w-0 flex-1 truncate text-sm font-medium">Daily spending set-aside</p>
               <span className="shrink-0 text-sm tabular-nums text-zinc-500 dark:text-zinc-400">
-                ≈ {fmtMoney(plan.groceriesBudget / plan.weeks, currency)}/wk
+                ≈ {fmtMoney(plan.envelopeBudget / plan.weeks, currency)}/wk
               </span>
               <span className="w-24 shrink-0 text-right text-sm font-semibold tabular-nums">
-                {fmtMoney(plan.groceriesBudget, currency)}
+                {fmtMoney(plan.envelopeBudget, currency)}
               </span>
             </div>
-            {!plan.isFuture && plan.groceriesBudget > 0 && (
+            {!plan.isFuture && plan.envelopeBudget > 0 && (
               <div className="mt-2 pl-[42px]">
                 <ProgressBar
-                  value={(plan.groceriesSpent / plan.groceriesBudget) * 100}
+                  value={(plan.envelopeSpent / plan.envelopeBudget) * 100}
                   className="h-1.5"
                 />
                 <p
                   className={cx(
                     'mt-1 text-[11px]',
-                    plan.groceriesRemaining != null && plan.groceriesRemaining < 0
+                    plan.envelopeRemaining != null && plan.envelopeRemaining < 0
                       ? 'text-rose-600 dark:text-rose-400'
                       : 'text-zinc-500 dark:text-zinc-400',
                   )}
                 >
-                  Groceries logged {fmtMoney(plan.groceriesSpent, currency)} of{' '}
-                  {fmtMoney(plan.groceriesBudget, currency)}
-                  {plan.groceriesRemaining == null ? (
+                  Daily expenses logged {fmtMoney(plan.envelopeSpent, currency)} of{' '}
+                  {fmtMoney(plan.envelopeBudget, currency)}
+                  {plan.envelopeRemaining == null ? (
                     ''
-                  ) : plan.groceriesRemaining >= 0 ? (
-                    <> — {fmtMoney(plan.groceriesRemaining, currency)} left in the set-aside</>
+                  ) : plan.envelopeRemaining >= 0 ? (
+                    <> — {fmtMoney(plan.envelopeRemaining, currency)} left in the set-aside</>
                   ) : (
-                    <> — {fmtMoney(-plan.groceriesRemaining, currency)} over the set-aside</>
+                    <> — {fmtMoney(-plan.envelopeRemaining, currency)} over the set-aside</>
                   )}
                 </p>
               </div>
@@ -602,9 +602,9 @@ export function PlannerView({
               <p className="text-base font-semibold tabular-nums">
                 {fmtMoney(plan.flexibleSpent, currency)}
               </p>
-              {plan.groceriesSpent > 0 && (
+              {plan.envelopeSpent > 0 && (
                 <p className="text-[11px] text-zinc-400">
-                  + {fmtMoney(plan.groceriesSpent, currency)} groceries (set-aside)
+                  + {fmtMoney(plan.envelopeSpent, currency)} from set-aside
                 </p>
               )}
             </div>
@@ -630,8 +630,8 @@ export function PlannerView({
           <div className="mt-4 flex items-start gap-2.5 rounded-xl bg-rose-500/10 p-3.5 text-sm text-rose-700 dark:text-rose-300">
             <TriangleAlert size={18} className="mt-0.5 shrink-0" />
             <span>
-              This cycle is over-committed by {fmtMoney(-plan.flexible, currency)}. Trim groceries
-              or check for bills you can defer.
+              This cycle is over-committed by {fmtMoney(-plan.flexible, currency)}. Trim daily
+              spending or check for bills you can defer.
             </span>
           </div>
         )}

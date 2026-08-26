@@ -54,26 +54,26 @@ export interface CyclePlan {
   /** Portion of bills not yet paid. */
   unpaidTotal: number
   paidTotal: number
-  groceriesBudget: number
-  /** Actual spend in the Groceries category within the cycle. */
-  groceriesSpent: number
-  /** groceriesBudget − groceriesSpent; null when no envelope is set. Negative = overspent. */
-  groceriesRemaining: number | null
+  /** Daily-spending set-aside for the cycle (covers ALL logged expenses). */
+  envelopeBudget: number
+  /** All expenses logged within the cycle so far — they draw the set-aside down. */
+  envelopeSpent: number
+  /** envelopeBudget − envelopeSpent; null when no set-aside is configured. Negative = overspent. */
+  envelopeRemaining: number | null
   income: number
   committed: number
   flexible: number
   weeks: number
   perWeek: number
-  /** All expenses logged within the cycle so far (groceries included). */
-  spent: number
   /**
-   * Spending that draws from flexible money: everything except groceries
-   * covered by the set-aside envelope (groceries overspend falls back to
-   * flexible).
+   * Spending that draws from flexible money: only the part of logged
+   * expenses that exceeds the daily set-aside envelope.
    */
   flexibleSpent: number
   available: number
   daysToNextPayday: number
+  /** Days remaining in the cycle including today (0 for past cycles). */
+  daysLeftInCycle: number
 }
 
 export function computeCyclePlan(
@@ -86,7 +86,8 @@ export function computeCyclePlan(
 ): CyclePlan {
   const weeklyRent = settings.weeklyRent ?? 0
   const rentWeekday = settings.rentWeekday ?? 1
-  const groceriesBudget = settings.groceriesBudget ?? 0
+  // The daily-spending set-aside (stored as `groceriesBudget`).
+  const envelopeBudget = settings.groceriesBudget ?? 0
 
   const rentDates = rentDatesInCycle(cycle.start, cycle.end, rentWeekday)
   const rentTotal = weeklyRent * rentDates.length
@@ -103,28 +104,21 @@ export function computeCyclePlan(
   const paidTotal = paidBills.reduce((acc, l) => acc + l.amount, 0)
 
   const income = incomes[cycle.fundedYm]?.amount ?? 0
-  const committed = rentTotal + billsTotal + groceriesBudget
+  const committed = rentTotal + billsTotal + envelopeBudget
   const flexible = income - committed
 
   const isPast = cycle.end < today
   const isFuture = cycle.start > today
   const isCurrent = !isPast && !isFuture
   const until = isFuture ? cycle.start : isPast ? cycle.end : today
-  const spent = isFuture ? 0 : sumExpensesInRange(expenses, cycle.start, until)
-  const groceriesSpent = isFuture
-    ? 0
-    : sumExpensesInRange(
-        expenses.filter((e) => e.category === 'Groceries'),
-        cycle.start,
-        until,
-      )
-
-  // Groceries draw from their set-aside envelope, not from flexible money.
-  // If the envelope is exhausted, the overspend falls back to flexible.
-  const hasEnvelope = groceriesBudget > 0
-  const fromEnvelope = hasEnvelope ? Math.min(groceriesSpent, groceriesBudget) : 0
-  const flexibleSpent = spent - fromEnvelope
-  const groceriesRemaining = hasEnvelope ? groceriesBudget - groceriesSpent : null
+  // EVERY logged expense draws from the daily set-aside first — cafe,
+  // transport, groceries, everything. Only the overflow hits flexible money.
+  const envelopeSpent = isFuture ? 0 : sumExpensesInRange(expenses, cycle.start, until)
+  const hasEnvelope = envelopeBudget > 0
+  const fromEnvelope = hasEnvelope ? Math.min(envelopeSpent, envelopeBudget) : 0
+  const flexibleSpent = envelopeSpent - fromEnvelope
+  const envelopeRemaining = hasEnvelope ? envelopeBudget - envelopeSpent : null
+  const daysLeftInCycle = isPast ? 0 : diffDays(today, cycle.end) + 1
 
   return {
     cycle,
@@ -141,17 +135,17 @@ export function computeCyclePlan(
     billsTotal,
     unpaidTotal,
     paidTotal,
-    groceriesBudget,
-    groceriesSpent,
-    groceriesRemaining,
+    envelopeBudget,
+    envelopeSpent,
+    envelopeRemaining,
     income,
     committed,
     flexible,
     weeks: Math.max(rentDates.length, 1),
     perWeek: flexible / Math.max(rentDates.length, 1),
-    spent,
     flexibleSpent,
     available: flexible - flexibleSpent,
     daysToNextPayday: diffDays(today, cycle.nextPayday),
+    daysLeftInCycle,
   }
 }
