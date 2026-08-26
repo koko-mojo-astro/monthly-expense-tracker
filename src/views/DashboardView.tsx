@@ -13,15 +13,14 @@ import { useAppData } from '../context/AppData'
 import { ExpenseRow } from '../components/ExpenseRow'
 import { CategoryDonut, TrendChart } from '../components/charts'
 import { Button, Card, EmptyState, ProgressBar, SectionTitle, Skeleton } from '../components/ui'
-import { cx, fmtDay, fmtMoney, fmtMonth, todayISO } from '../lib/format'
+import { cx, fmtDay, fmtMoney, fmtMonth, fmtMonthShort, todayISO } from '../lib/format'
 import {
   addMonths,
   buildCycle,
   currentYm,
-  lastNMonths,
+  paydayISOFor,
   monthlyCapacity,
   projectGoal,
-  summarizeMonth,
   type Cycle,
 } from '../lib/stats'
 import { computeCyclePlan } from '../lib/cycle'
@@ -228,8 +227,18 @@ export function DashboardView({
     catTotals.set(e.category, (catTotals.get(e.category) ?? 0) + e.amount)
   }
 
-  const trendYms = lastNMonths(ym, 6)
-  const trendSummaries = trendYms.map((m) => summarizeMonth(expenses, incomes, liabilities, m))
+  // Trend across the last 6 pay cycles (oldest -> selected)
+  const trendCycles = Array.from({ length: 6 }, (_, i) => {
+    const start = paydayISOFor(addMonths(cycle.start.slice(0, 7), i - 5), pd)
+    return computeCyclePlan(
+      buildCycle(start, pd),
+      settings,
+      incomes,
+      liabilities,
+      expenses,
+      today,
+    )
+  })
 
   const progress =
     goal && goal.targetAmount > 0 ? (Math.min(goal.savedAmount, goal.targetAmount) / goal.targetAmount) * 100 : 0
@@ -361,15 +370,15 @@ export function DashboardView({
           {loading ? <Skeleton className="h-48" /> : <CategoryDonut totals={catTotals} currency={currency} dark={theme === 'dark'} />}
         </Card>
         <Card className="p-4 sm:p-5">
-          <SectionTitle title="Last 6 months" />
+          <SectionTitle title="Last 6 pay cycles" />
           {loading ? (
             <Skeleton className="h-64" />
           ) : (
             <TrendChart
-              yms={trendYms}
-              income={trendSummaries.map((s) => s.income)}
-              expenses={trendSummaries.map((s) => s.expenses)}
-              liabilities={trendSummaries.map((s) => s.liabilities)}
+              labels={trendCycles.map((t) => fmtMonthShort(t.fundedYm))}
+              income={trendCycles.map((t) => t.income)}
+              spending={trendCycles.map((t) => t.envelopeSpent)}
+              bills={trendCycles.map((t) => t.billsTotal)}
               currency={currency}
               dark={theme === 'dark'}
             />

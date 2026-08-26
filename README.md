@@ -27,10 +27,10 @@ provider you like.
   The top-bar navigator switches pay cycles globally — Dashboard, Planner, Transactions
   and Income & Bills all follow the selected cycle
 - **Daily expenses** — log, edit and delete expenses with categories, dates and notes,
-  grouped by day; filter by calendar month **or** by pay cycle
-- **Monthly income** — store your income per month
-- **Bills & liabilities** — track monthly obligations, mark them paid, copy last month's
-  bills forward
+  grouped by day; scope by pay cycle (default) or calendar month
+- **Cycle income & bills** — store each paycheck's take-home and manage the bills for
+  the selected pay cycle: mark them paid, copy the previous cycle's bills forward, and
+  see a cycle summary that matches the Planner line for line
 - **Savings goal** — auto-calculates months-to-goal from average monthly surplus,
   supports optional target dates with required-monthly-saving feedback, and quick
   contributions
@@ -137,8 +137,8 @@ with a single route.
 ```
 users/{uid}
 ├── expenses/{pushId}          { date, amount, category, note?, createdAt }
-├── incomes/{YYYY-MM}          { amount, updatedAt }
-├── liabilities/{YYYY-MM}/{id} { name, amount, paid }
+├── incomes/{YYYY-MM}          { amount, updatedAt }   // YYYY-MM = the month the pay cycle funds
+├── liabilities/{YYYY-MM}/{id} { name, amount, paid }   // same funded-month key
 ├── goal/current               { title?, targetAmount, savedAmount, targetDate? }
 └── settings
     ├── currency               "NZD" (default)
