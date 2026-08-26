@@ -53,12 +53,10 @@ export function TransactionsView({ cycle }: { cycle: Cycle }) {
 
   const total = scopedExpenses.reduce((acc, e) => acc + e.amount, 0)
 
-  // Groceries envelope draw-down for the selected cycle
-  const groceriesBudget = settings.groceriesBudget ?? 0
-  const groceriesSpent = scopedExpenses
-    .filter((e) => e.category === 'Groceries')
-    .reduce((acc, e) => acc + e.amount, 0)
-  const groceriesLeft = groceriesBudget - groceriesSpent
+  // Daily set-aside envelope draw-down for the selected cycle (all expenses)
+  const envelopeBudget = settings.groceriesBudget ?? 0
+  const envelopeSpent = total
+  const envelopeLeft = envelopeBudget - envelopeSpent
 
   const groups = new Map<string, { items: Expense[]; total: number }>()
   for (const e of scopedExpenses) {
@@ -224,21 +222,21 @@ export function TransactionsView({ cycle }: { cycle: Cycle }) {
           }
         />
 
-        {scope === 'cycle' && groceriesBudget > 0 && (
+        {scope === 'cycle' && envelopeBudget > 0 && (
           <p
             className={cx(
               '-mt-1 mb-3 text-xs',
-              groceriesLeft < 0
+              envelopeLeft < 0
                 ? 'text-rose-600 dark:text-rose-400'
                 : 'text-zinc-500 dark:text-zinc-400',
             )}
           >
-            Groceries set-aside: {fmtMoney(groceriesSpent, currency)} of{' '}
-            {fmtMoney(groceriesBudget, currency)} used —{' '}
-            {groceriesLeft >= 0
-              ? `${fmtMoney(groceriesLeft, currency)} left`
-              : `${fmtMoney(-groceriesLeft, currency)} over`}
-            . Groceries don't reduce your flexible money.
+            Daily set-aside: {fmtMoney(envelopeSpent, currency)} of{' '}
+            {fmtMoney(envelopeBudget, currency)} used —{' '}
+            {envelopeLeft >= 0
+              ? `${fmtMoney(envelopeLeft, currency)} left`
+              : `${fmtMoney(-envelopeLeft, currency)} over`}
+            . Daily expenses draw from the set-aside before touching flexible money.
           </p>
         )}
 
