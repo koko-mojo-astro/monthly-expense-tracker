@@ -49,7 +49,7 @@ export function PlannerView({
   onNavigate: (v: ViewId) => void
 }) {
   const today = todayISO()
-  const { settings, incomes, liabilities, expenses, goal, currency, api, loading } = useAppData()
+  const { settings, incomes, liabilities, expenses, goal, transfers, currency, api, loading } = useAppData()
 
   // Assumptions (persisted to /settings once saved)
   const [paydayDate, setPaydayDate] = useState('')
@@ -138,18 +138,57 @@ export function PlannerView({
     }
   }
 
+  const alreadyTransferred = transfers[cycle.start] ?? null
+  // Real-world: only what's actually still available after real spending can be moved.
+  // Using `available` (flexible - overspend) instead of theoretical `flexible`.
+  const transferableAmount = plan.isFuture ? 0 : Math.max(0, Math.round(plan.available * 100) / 100)
+  const [transferBusy, setTransferBusy] = useState(false)
+
   async function addToGoal() {
-    if (!goal || plan.flexible <= 0) return
+    if (!goal) return
+    if (alreadyTransferred) return
+    if (plan.isFuture) {
+      window.alert('You cannot close a future pay cycle yet — wait until it starts.')
+      return
+    }
+    if (transferableAmount <= 0) return
     if (
       !window.confirm(
-        `Add ${fmtMoney(plan.flexible, currency)} to your savings goal?\nCurrent saved: ${fmtMoney(goal.savedAmount, currency)}`,
+        `Move ${fmtMoney(transferableAmount, currency)} from this pay cycle into your savings goal?\n\nCycle: ${fmtDay(cycle.start)} → ${fmtDay(cycle.nextPayday)} (${fmtMonth(cycle.fundedYm)})\nAvailable: ${fmtMoney(plan.available, currency)}\nCurrent saved: ${fmtMoney(goal.savedAmount, currency)}\n\nThis can only be done once per cycle. You can undo it afterward.`,
       )
     )
       return
+    setTransferBusy(true)
     try {
-      await api.saveGoal({ savedAmount: goal.savedAmount + plan.flexible })
+      await api.transferCycleToGoal(
+        cycle.start,
+        cycle.fundedYm,
+        transferableAmount,
+        goal.savedAmount,
+        goal.title,
+      )
     } catch {
       window.alert('Could not update the goal. Check your database rules.')
+    } finally {
+      setTransferBusy(false)
+    }
+  }
+
+  async function undoTransfer() {
+    if (!goal || !alreadyTransferred) return
+    if (
+      !window.confirm(
+        `Undo transfer of ${fmtMoney(alreadyTransferred.amount, currency)} from ${fmtDay(cycle.start)}?\nThis will subtract it from your savings goal.`,
+      )
+    )
+      return
+    setTransferBusy(true)
+    try {
+      await api.undoCycleTransfer(cycle.start, alreadyTransferred.amount, goal.savedAmount)
+    } catch {
+      window.alert('Could not undo. Check your connection.')
+    } finally {
+      setTransferBusy(false)
     }
   }
 
@@ -161,9 +200,18 @@ export function PlannerView({
   async function quickAddBill(e: React.FormEvent) {
     e.preventDefault()
     const amount = num(billAmount)
-    if (!billName.trim() || amount <= 0) return
+    const trimmed = billName.trim()
+    if (!trimmed || amount <= 0) return
+    // Real-world: avoid duplicate bills in the same cycle
+    const existingNames = new Set(
+      Object.values(liabilities[cycle.fundedYm] ?? {}).map((l) => l.name.trim().toLowerCase()),
+    )
+    if (existingNames.has(trimmed.toLowerCase())) {
+      window.alert(`"${trimmed}" already exists in ${fmtMonth(cycle.fundedYm)}. Edit it instead.`)
+      return
+    }
     try {
-      await api.addLiability(cycle.fundedYm, billName.trim(), amount)
+      await api.addLiability(cycle.fundedYm, trimmed, amount)
       setBillName('')
       setBillAmount('')
       setBillFormOpen(false)
@@ -176,15 +224,24 @@ export function PlannerView({
     const prevYm = shiftYm(cycle.fundedYm, -1)
     const prev = liabilities[prevYm]
     const items = prev ? Object.values(prev) : []
+    if (items.length === 0) return
+    // Do not duplicate bills that already exist in the target month
+    const existingNames = new Set(
+      Object.values(liabilities[cycle.fundedYm] ?? {}).map((l) => l.name.trim().toLowerCase()),
+    )
+    const toCopy = items.filter((l) => !existingNames.has(l.name.trim().toLowerCase()))
+    if (toCopy.length === 0) {
+      window.alert(`All bills from ${fmtMonth(prevYm)} already exist in ${fmtMonth(cycle.fundedYm)}.`)
+      return
+    }
     if (
-      items.length === 0 ||
       !window.confirm(
-        `Copy ${items.length} bill${items.length === 1 ? '' : 's'} from ${fmtMonth(prevYm)} to ${fmtMonth(cycle.fundedYm)}?`,
+        `Copy ${toCopy.length} bill${toCopy.length === 1 ? '' : 's'} from ${fmtMonth(prevYm)} to ${fmtMonth(cycle.fundedYm)}?${items.length !== toCopy.length ? ` (${items.length - toCopy.length} already exist, skipped)` : ''}`,
       )
     )
       return
     try {
-      await Promise.all(items.map((l) => api.addLiability(cycle.fundedYm, l.name, l.amount)))
+      await Promise.all(toCopy.map((l) => api.addLiability(cycle.fundedYm, l.name, l.amount)))
     } catch {
       window.alert('Could not copy bills. Check your database rules and connection.')
     }
@@ -548,7 +605,7 @@ export function PlannerView({
         </div>
       </Card>
 
-      {/* Result */}
+      {/* Result — one-time cycle close */}
       <Card className="overflow-hidden p-0">
         <div className="p-4 sm:p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -567,23 +624,48 @@ export function PlannerView({
                 {fmtMoney(plan.flexible, currency)}
               </p>
               <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                ≈ {fmtMoney(plan.perWeek, currency)} per week unallocated
+                ≈ {fmtMoney(plan.perWeek, currency)} per week unallocated · available {fmtMoney(plan.available, currency)}
               </p>
+              {alreadyTransferred && (
+                <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-2.5 py-1 text-xs font-bold text-white">
+                  ✓ Moved {fmtMoney(alreadyTransferred.amount, currency)} on {fmtDay(new Date(alreadyTransferred.createdAt).toISOString().slice(0, 10))}
+                </p>
+              )}
             </div>
             <div className="flex flex-col gap-2 sm:items-end">
-              {goal ? (
-                <Button onClick={addToGoal} disabled={plan.flexible <= 0} variant={plan.flexible > 0 ? 'accent' : 'primary'} className="w-full sm:w-auto">
-                  <PiggyBank size={16} /> Add to savings goal
-                </Button>
+              {alreadyTransferred ? (
+                <>
+                  <Button variant="subtle" onClick={undoTransfer} disabled={transferBusy} className="w-full sm:w-auto">
+                    Undo transfer
+                  </Button>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 sm:max-w-52 sm:text-right">
+                    This cycle is already closed. Undo to move a different amount.
+                  </p>
+                </>
+              ) : goal ? (
+                <>
+                  <Button
+                    onClick={addToGoal}
+                    disabled={plan.isFuture || transferableAmount <= 0 || transferBusy}
+                    variant={transferableAmount > 0 && !plan.isFuture ? 'accent' : 'primary'}
+                    className="w-full sm:w-auto"
+                  >
+                    <PiggyBank size={16} /> {transferBusy ? 'Moving…' : 'Add to savings goal'}
+                  </Button>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 sm:max-w-52 sm:text-right">
+                    {plan.isFuture
+                      ? 'Future cycles cannot be closed yet.'
+                      : transferableAmount > 0
+                        ? `Moves ${fmtMoney(transferableAmount, currency)} into “${goal.title?.trim() || 'Savings Goal'}” — once per cycle`
+                        : plan.available <= 0
+                          ? 'Nothing available to move — reduce spending or increase income.'
+                          : 'Add income to enable transfer.'}
+                  </p>
+                </>
               ) : (
-                <Button variant="subtle" onClick={() => onNavigate('goal')} disabled={plan.flexible <= 0} className="w-full sm:w-auto">
+                <Button variant="subtle" onClick={() => onNavigate('goal')} className="w-full sm:w-auto">
                   <PiggyBank size={16} /> Set a goal first
                 </Button>
-              )}
-              {goal && plan.flexible > 0 && (
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 sm:max-w-52 sm:text-right">
-                  Moves {fmtMoney(plan.flexible, currency)} into &ldquo;{goal.title?.trim() || 'Savings Goal'}&rdquo;
-                </p>
               )}
             </div>
           </div>

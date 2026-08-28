@@ -192,11 +192,16 @@ export function MonthlyView({
   async function addItem(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    const trimmed = name.trim()
     const amt = Number.parseFloat(amount)
-    if (!name.trim()) return setError('Give the bill a name.')
+    if (!trimmed) return setError('Give the bill a name.')
     if (!isFinite(amt) || amt <= 0) return setError('Enter an amount greater than zero.')
+    const existingNames = new Set(monthItems.map((l) => l.name.trim().toLowerCase()))
+    if (existingNames.has(trimmed.toLowerCase())) {
+      return setError(`"${trimmed}" already exists in ${fmtMonth(ym)}.`)
+    }
     try {
-      await api.addLiability(ym, name.trim(), amt)
+      await api.addLiability(ym, trimmed, amt)
       setName('')
       setAmount('')
     } catch {
@@ -205,15 +210,21 @@ export function MonthlyView({
   }
 
   async function copyFromPrevCycle() {
+    if (!prevItems) return
+    const existingNames = new Set(monthItems.map((l) => l.name.trim().toLowerCase()))
+    const toCopy = Object.values(prevItems).filter((l) => !existingNames.has(l.name.trim().toLowerCase()))
+    if (toCopy.length === 0) {
+      window.alert(`All bills from the previous cycle already exist in ${fmtMonth(ym)}.`)
+      return
+    }
     if (
-      !prevItems ||
-      !window.confirm(`Copy ${Object.keys(prevItems).length} bills from the previous cycle into this one?`)
+      !window.confirm(
+        `Copy ${toCopy.length} bill${toCopy.length === 1 ? '' : 's'} from the previous cycle into this one?${Object.keys(prevItems).length !== toCopy.length ? ` (${Object.keys(prevItems).length - toCopy.length} already exist, skipped)` : ''}`,
+      )
     )
       return
     try {
-      await Promise.all(
-        Object.values(prevItems).map((l) => api.addLiability(ym, l.name, l.amount)),
-      )
+      await Promise.all(toCopy.map((l) => api.addLiability(ym, l.name, l.amount)))
     } catch {
       window.alert('Could not copy bills. Check your database rules and connection.')
     }

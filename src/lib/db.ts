@@ -1,6 +1,6 @@
 import { ref, push, set, update, remove } from 'firebase/database'
 import { db } from '../firebase'
-import type { Expense, Goal, Settings } from './types'
+import type { Expense, Goal, Settings, Transfer } from './types'
 
 type ExpenseDraft = Omit<Expense, 'id'>
 
@@ -16,6 +16,15 @@ export interface DbApi {
   saveSettings(patch: Partial<Settings>): Promise<void>
   saveCurrency(currency: string): Promise<void>
   wipeAll(): Promise<void>
+  /** One-time transfer: closes a pay cycle and moves its available surplus into the savings goal. */
+  transferCycleToGoal(
+    cycleStart: string,
+    fundedYm: string,
+    amount: number,
+    currentSaved: number,
+    goalTitle?: string,
+  ): Promise<void>
+  undoCycleTransfer(cycleStart: string, amount: number, currentSaved: number): Promise<void>
 }
 
 /**
@@ -66,6 +75,31 @@ export function createDbApi(uid: string): DbApi {
 
     wipeAll(): Promise<void> {
       return remove(ref(db, root))
+    },
+
+    transferCycleToGoal(cycleStart, fundedYm, amount, currentSaved, goalTitle): Promise<void> {
+      const transfer: Transfer = {
+        cycleStart,
+        fundedYm,
+        amount,
+        createdAt: Date.now(),
+        goalTitle,
+      }
+      // Atomic multi-path update: writing the transfer record and bumping the goal in one call
+      // prevents a partial state if the connection drops mid-write.
+      const updates: Record<string, unknown> = {}
+      updates[`${root}/transfers/${cycleStart}`] = transfer
+      updates[`${root}/goal/current/savedAmount`] = currentSaved + amount
+      updates[`${root}/goal/current/updatedAt`] = Date.now()
+      return update(ref(db), updates)
+    },
+
+    undoCycleTransfer(cycleStart, amount, currentSaved): Promise<void> {
+      const updates: Record<string, unknown> = {}
+      updates[`${root}/transfers/${cycleStart}`] = null
+      updates[`${root}/goal/current/savedAmount`] = Math.max(0, currentSaved - amount)
+      updates[`${root}/goal/current/updatedAt`] = Date.now()
+      return update(ref(db), updates)
     },
   }
 }

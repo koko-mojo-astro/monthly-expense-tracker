@@ -8,7 +8,7 @@ import { currentYm, monthlyCapacity, projectGoal } from '../lib/stats'
 export function GoalView() {
   // Goal pace is always projected from today, regardless of the viewed cycle.
   const ym = currentYm()
-  const { goal, expenses, incomes, liabilities, currency, api } = useAppData()
+  const { goal, expenses, incomes, liabilities, transfers, currency, api } = useAppData()
 
   const [title, setTitle] = useState('')
   const [target, setTarget] = useState('')
@@ -16,6 +16,7 @@ export function GoalView() {
   const [targetDate, setTargetDate] = useState('')
   const [contribution, setContribution] = useState('')
   const [saving, setSaving] = useState(false)
+  const [contribBusy, setContribBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -59,13 +60,21 @@ export function GoalView() {
   }
 
   async function contribute() {
+    if (contribBusy) return
     const amt = Number.parseFloat(contribution)
     if (!isFinite(amt) || amt === 0) return
+    if (amt < 0 && Math.abs(amt) > savedNum) {
+      setError('Cannot withdraw more than saved.')
+      return
+    }
+    setContribBusy(true)
     try {
       await api.saveGoal({ savedAmount: Math.max(0, savedNum + amt), targetAmount: targetNum })
       setContribution('')
     } catch {
       window.alert('Could not add contribution. Check your database rules.')
+    } finally {
+      setContribBusy(false)
     }
   }
 
@@ -125,7 +134,7 @@ export function GoalView() {
 
         {goal && (
           <div className="mt-6 border-t border-zinc-100 pt-5 dark:border-zinc-800">
-            <Field label="Add a contribution">
+            <Field label="Add a manual contribution">
               <div className="flex gap-2">
                 <Input
                   inputMode="decimal"
@@ -136,12 +145,12 @@ export function GoalView() {
                   onChange={(e) => setContribution(e.target.value)}
                   className="flex-1"
                 />
-                <Button variant="primary" onClick={contribute} className="shrink-0">
-                  Add
+                <Button variant="primary" onClick={contribute} disabled={contribBusy} className="shrink-0">
+                  {contribBusy ? 'Saving…' : 'Add'}
                 </Button>
               </div>
             </Field>
-            <p className="mt-1.5 text-xs text-zinc-500">Adds to your saved amount immediately.</p>
+            <p className="mt-1.5 text-xs text-zinc-500">Adds to your saved amount immediately. Use negative to withdraw (e.g. -50).</p>
           </div>
         )}
       </Card>
@@ -257,6 +266,42 @@ export function GoalView() {
           <div className="mt-4">
             <ProgressBar value={progress} />
           </div>
+        </Card>
+
+        <Card className="p-4 sm:p-5">
+          <SectionTitle title="Cycle transfers" kicker="History" />
+          {Object.keys(transfers).length === 0 ? (
+            <p className="rounded-2xl bg-zinc-900/[0.04] px-3.5 py-3 text-sm leading-relaxed text-zinc-500 dark:bg-white/5 dark:text-zinc-400">
+              No pay-cycle closes yet. When you move money from the Planner, it appears here with the cycle and date — one entry per cycle, undoable.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {Object.values(transfers)
+                .sort((a, b) => b.createdAt - a.createdAt)
+                .slice(0, 10)
+                .map((t) => (
+                  <li
+                    key={t.cycleStart}
+                    className="flex items-center justify-between gap-3 rounded-2xl bg-zinc-900/[0.04] px-3.5 py-2.5 dark:bg-white/5"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold">
+                        {fmtMonth(t.fundedYm)} · {t.cycleStart}
+                      </p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {new Date(t.createdAt).toLocaleDateString()} · {t.goalTitle || 'Savings Goal'}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-emerald-500 px-2.5 py-1 text-xs font-bold text-white">
+                      +{fmtMoney(t.amount, currency)}
+                    </span>
+                  </li>
+                ))}
+              {Object.keys(transfers).length > 10 && (
+                <li className="text-center text-xs text-zinc-400">+{Object.keys(transfers).length - 10} more</li>
+              )}
+            </ul>
+          )}
         </Card>
       </div>
     </div>
