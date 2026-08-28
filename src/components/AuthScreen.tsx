@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Loader2, Wallet } from 'lucide-react'
+import { ArrowRight, Loader2, ShieldCheck, Sparkles, TrendingUp, Wallet } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { friendlyAuthError } from '../lib/authErrors'
 import { Button, Field, Input } from './ui'
@@ -62,95 +62,164 @@ export function AuthScreen() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-emerald-50 via-zinc-100 to-teal-50 p-4 dark:from-zinc-900 dark:via-zinc-950 dark:to-zinc-900">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-md">
-            <Wallet size={24} strokeWidth={2.2} />
-          </span>
-          <h1 className="text-xl font-bold tracking-tight">Mojo Money</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Track spending, hit savings goals.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
-          <Button
-            type="button"
-            variant="subtle"
-            className="w-full"
-            disabled={busy !== 'none'}
-            onClick={() => void run(signInWithGoogle, 'google')}
-          >
-            {busy === 'google' ? <Loader2 size={16} className="animate-spin" /> : <GoogleIcon />}
-            Continue with Google
-          </Button>
-
-          <div className="my-5 flex items-center gap-3 text-xs text-zinc-400">
-            <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
-            or with email
-            <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+    <div className="min-h-dvh bg-[#FFFBF0] dark:bg-[#080A12]">
+      <div className="mx-auto grid min-h-dvh max-w-[1100px] lg:grid-cols-[1.05fr_0.95fr]">
+        {/* Left — brand / hero */}
+        <div className="relative hidden overflow-hidden bg-[#0B0D14] p-10 text-white lg:flex lg:flex-col lg:justify-between">
+          <div className="absolute inset-0 bg-gradient-to-br from-violet-600/20 via-transparent to-[#C6FF00]/10" />
+          <div className="absolute -right-24 -top-24 size-[420px] rounded-full bg-violet-600/20 blur-[80px]" />
+          <div className="absolute -bottom-24 -left-24 size-[420px] rounded-full bg-[#C6FF00]/10 blur-[80px]" />
+          <div className="relative">
+            <div className="flex items-center gap-3">
+              <span className="flex size-10 items-center justify-center rounded-2xl bg-white text-zinc-900">
+                <Wallet size={20} strokeWidth={2.2} />
+              </span>
+              <span className="font-display text-lg font-bold tracking-tight">Mojo Money</span>
+            </div>
           </div>
 
-          <form onSubmit={submitEmail} className="space-y-3">
-            {mode === 'signup' && (
-              <Field label="Name">
-                <Input
-                  type="text"
-                  autoComplete="name"
-                  placeholder="Your name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </Field>
-            )}
-            <Field label="Email">
-              <Input
-                type="email"
-                autoComplete="email"
-                required
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </Field>
-            <Field label="Password">
-              <Input
-                type="password"
-                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                required
-                minLength={6}
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </Field>
+          <div className="relative">
+            <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide uppercase backdrop-blur">
+              <span className="size-2 rounded-full bg-[#C6FF00]" /> Pay-cycle budgeting
+            </p>
+            <h1 className="mt-4 font-display text-[42px] font-bold leading-[0.95] tracking-[-0.03em]">
+              Budget by
+              <br />
+              <span className="font-fraunces italic font-bold text-[#C6FF00]">payday,</span> not
+              <br />
+              the calendar.
+            </h1>
+            <p className="mt-4 max-w-[38ch] text-[15px] leading-relaxed text-zinc-300">
+              Track rent, bills and daily spending inside each pay cycle. See what&apos;s actually left to save.
+            </p>
 
-            {error && (
-              <p className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-600 dark:text-rose-400">
-                {error}
+            <div className="mt-8 grid gap-3">
+              {[
+                { icon: TrendingUp, title: 'Live pay-cycle plan', desc: 'Income → rent → bills → set-aside → flexible' },
+                { icon: ShieldCheck, title: 'Private by default', desc: 'Your data lives in your Firebase — nobody else sees it.' },
+                { icon: Sparkles, title: 'Savings projection', desc: 'Know exactly how many months until your goal.' },
+              ].map(({ icon: Icon, title, desc }) => (
+                <div key={title} className="flex gap-3 rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-white text-zinc-900">
+                    <Icon size={16} />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold">{title}</p>
+                    <p className="text-xs leading-relaxed text-zinc-400">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <p className="relative text-xs text-zinc-500">© {new Date().getFullYear()} Mojo Money — built for the way you get paid.</p>
+        </div>
+
+        {/* Right — form */}
+        <div className="flex items-center justify-center p-4 sm:p-6 lg:p-10">
+          <div className="w-full max-w-[420px]">
+            {/* Mobile brand */}
+            <div className="mb-6 flex flex-col items-center gap-3 text-center lg:hidden">
+              <span className="flex size-12 items-center justify-center rounded-2xl bg-[#0B0D14] text-[#C6FF00] shadow-md dark:bg-white dark:text-zinc-900">
+                <Wallet size={22} strokeWidth={2.2} />
+              </span>
+              <div>
+                <h1 className="font-display text-xl font-bold tracking-tight">Mojo Money</h1>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">Budget by payday, not the calendar.</p>
+              </div>
+            </div>
+
+            <div className="rounded-[28px] border border-zinc-900/5 bg-white p-6 shadow-[0_8px_32px_rgba(11,13,20,0.08)] sm:p-7 dark:border-white/10 dark:bg-zinc-900">
+              <div className="mb-6">
+                <h2 className="font-display text-[22px] font-bold tracking-tight">
+                  {mode === 'signup' ? 'Create account' : 'Welcome back'}
+                </h2>
+                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                  {mode === 'signup' ? 'Start budgeting in under a minute.' : 'Sign in to your pay-cycle workspace.'}
+                </p>
+              </div>
+
+              <Button
+                type="button"
+                variant="subtle"
+                className="w-full !rounded-full !py-3"
+                disabled={busy !== 'none'}
+                onClick={() => void run(signInWithGoogle, 'google')}
+              >
+                {busy === 'google' ? <Loader2 size={16} className="animate-spin" /> : <GoogleIcon />}
+                Continue with Google
+              </Button>
+
+              <div className="my-5 flex items-center gap-3 text-xs font-semibold tracking-wide text-zinc-400 uppercase">
+                <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+                or with email
+                <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+              </div>
+
+              <form onSubmit={submitEmail} className="space-y-3.5">
+                {mode === 'signup' && (
+                  <Field label="Name">
+                    <Input
+                      type="text"
+                      autoComplete="name"
+                      placeholder="Your name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </Field>
+                )}
+                <Field label="Email">
+                  <Input
+                    type="email"
+                    autoComplete="email"
+                    required
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </Field>
+                <Field label="Password">
+                  <Input
+                    type="password"
+                    autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                    required
+                    minLength={6}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </Field>
+
+                {error && (
+                  <p className="rounded-2xl bg-rose-500/10 px-3.5 py-2.5 text-sm font-medium text-rose-600 dark:text-rose-400">
+                    {error}
+                  </p>
+                )}
+
+                <Button type="submit" disabled={busy !== 'none'} variant="accent" className="w-full !py-3">
+                  {busy === 'email' && <Loader2 size={16} className="animate-spin" />}
+                  {mode === 'signup' ? 'Create account' : 'Sign in'}
+                  <ArrowRight size={16} />
+                </Button>
+              </form>
+
+              <p className="mt-5 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                {mode === 'signin' ? 'New here?' : 'Already have an account?'}{' '}
+                <button
+                  type="button"
+                  className="font-bold text-zinc-900 underline decoration-zinc-900/20 underline-offset-4 hover:decoration-zinc-900 dark:text-white dark:decoration-white/20 dark:hover:decoration-white"
+                  onClick={() => {
+                    setMode(mode === 'signin' ? 'signup' : 'signin')
+                    setError(null)
+                  }}
+                >
+                  {mode === 'signin' ? 'Create an account' : 'Sign in'}
+                </button>
               </p>
-            )}
+            </div>
 
-            <Button type="submit" disabled={busy !== 'none'} className="w-full">
-              {busy === 'email' && <Loader2 size={16} className="animate-spin" />}
-              {mode === 'signup' ? 'Create account' : 'Sign in'}
-            </Button>
-          </form>
-
-          <p className="mt-4 text-center text-sm text-zinc-500 dark:text-zinc-400">
-            {mode === 'signin' ? 'New here?' : 'Already have an account?'}{' '}
-            <button
-              type="button"
-              className="font-semibold text-emerald-600 hover:underline dark:text-emerald-400"
-              onClick={() => {
-                setMode(mode === 'signin' ? 'signup' : 'signin')
-                setError(null)
-              }}
-            >
-              {mode === 'signin' ? 'Create an account' : 'Sign in'}
-            </button>
-          </p>
+            <p className="mt-4 text-center text-xs text-zinc-400">Secure — your data is isolated per account.</p>
+          </div>
         </div>
       </div>
     </div>

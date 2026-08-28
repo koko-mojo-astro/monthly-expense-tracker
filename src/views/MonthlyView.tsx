@@ -52,27 +52,29 @@ function IncomeCard({ cycle }: { cycle: Cycle }) {
 
   return (
     <Card className="p-4 sm:p-5">
-      <SectionTitle title="Cycle income" />
-      <div className="flex items-end gap-2">
-        <Field label={`Take-home received ${fmtDay(cycle.start)}`}>
-          <Input
-            inputMode="decimal"
-            type="number"
-            step="any"
-            min="0"
-            placeholder="0"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-          />
-        </Field>
-        <Button onClick={save} disabled={saving || !dirty} className="mb-px shrink-0">
+      <SectionTitle title="Cycle income" kicker="Income" />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex-1">
+          <Field label={`Take-home received ${fmtDay(cycle.start)}`}>
+            <Input
+              inputMode="decimal"
+              type="number"
+              step="any"
+              min="0"
+              placeholder="0.00"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+            />
+          </Field>
+        </div>
+        <Button onClick={save} disabled={saving || !dirty} variant="accent" className="w-full sm:w-auto">
           Save
         </Button>
       </div>
-      <p className="mt-2 h-4 text-xs text-emerald-600 dark:text-emerald-400">
+      <p className="mt-2 min-h-4 text-xs font-bold text-emerald-600 dark:text-emerald-400">
         {savedAt > 0 && '✓ Saved'}
       </p>
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+      <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
         This paycheck covers everything until {fmtDay(cycle.nextPayday)}.
       </p>
     </Card>
@@ -111,7 +113,7 @@ function CycleSummaryCard({ plan }: { plan: ReturnType<typeof computeCyclePlan> 
         plan.unpaidBills.length > 0
           ? `${fmtMoney(plan.unpaidTotal, currency)} still to pay`
           : plan.allBills.length > 0
-            ? 'all paid'
+            ? 'all paid ✓'
             : undefined,
     },
     {
@@ -123,42 +125,37 @@ function CycleSummaryCard({ plan }: { plan: ReturnType<typeof computeCyclePlan> 
         plan.envelopeRemaining == null
           ? undefined
           : plan.envelopeRemaining >= 0
-            ? `${fmtMoney(plan.envelopeRemaining, currency)} left of ${fmtMoney(plan.envelopeBudget, currency)}`
-            : `${fmtMoney(-plan.envelopeRemaining, currency)} over set-aside`,
+            ? `${fmtMoney(plan.envelopeRemaining, currency)} left`
+            : `${fmtMoney(-plan.envelopeRemaining, currency)} over`,
     },
   ]
 
   return (
     <Card className="p-4 sm:p-5">
-      <SectionTitle title="Where this paycheck went" />
-      <dl className="space-y-2.5 text-sm">
+      <SectionTitle title="Where this paycheck went" kicker="Summary" />
+      <dl className="space-y-3 text-sm">
         {rows.map(({ label, amount, tone, icon: Icon, note }) => (
-          <div key={label} className="flex items-center gap-2.5">
+          <div key={label} className="flex items-center gap-3 rounded-2xl bg-zinc-900/[0.04] px-3 py-2.5 dark:bg-white/5">
             {Icon && (
-              <Icon size={14} className="shrink-0 text-zinc-400" aria-hidden />
+              <span className="flex size-8 items-center justify-center rounded-xl bg-white text-zinc-600 shadow-sm dark:bg-zinc-800 dark:text-zinc-300">
+                <Icon size={14} aria-hidden />
+              </span>
             )}
-            <dt className="min-w-0 flex-1 text-zinc-500 dark:text-zinc-400">
-              {label}
-              {note && <span className="ml-1.5 text-[11px] text-zinc-400">({note})</span>}
+            <dt className="min-w-0 flex-1 text-zinc-600 dark:text-zinc-300">
+              <span className="font-semibold">{label}</span>
+              {note && <span className="ml-1.5 text-[11px] text-zinc-500">({note})</span>}
             </dt>
-            <dd className={cx('shrink-0 font-semibold tabular-nums', tone)}>{amount}</dd>
+            <dd className={cx('shrink-0 font-bold tabular-nums', tone)}>{amount}</dd>
           </div>
         ))}
-        <div className="flex justify-between border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
-          <dt className="font-medium">Flexible left</dt>
-          <dd
-            className={cx(
-              'font-bold tabular-nums',
-              plan.available >= 0
-                ? 'text-teal-600 dark:text-teal-400'
-                : 'text-rose-600 dark:text-rose-400',
-            )}
-          >
+        <div className="flex items-center justify-between rounded-2xl bg-[#0B0D14] px-4 py-3 text-white dark:bg-white dark:text-zinc-900">
+          <dt className="text-sm font-bold">Flexible left</dt>
+          <dd className="font-display text-base font-bold tabular-nums">
             {fmtMoney(plan.available, currency)}
           </dd>
         </div>
       </dl>
-      <p className="mt-3 text-[11px] text-zinc-400">
+      <p className="mt-3 text-center text-[11px] text-zinc-400">
         Same numbers as the Planner — rent, bills and the daily set-aside are already committed.
       </p>
     </Card>
@@ -227,17 +224,19 @@ export function MonthlyView({
   return (
     <div className="space-y-5">
       {/* Cycle header */}
-      <Card className="p-4 sm:p-5">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" aria-hidden>
-            <Wallet size={18} />
-          </span>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold">Income & Bills</p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Payday {fmtDay(cycle.start)} → next payday {fmtDay(cycle.nextPayday)} ·{' '}
-              <b>{fmtMonth(ym)}</b>'s money
-            </p>
+      <Card className="overflow-hidden">
+        <div className="bg-[#0B0D14] p-4 text-white sm:p-5 dark:bg-zinc-900">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-2xl bg-white/10 backdrop-blur" aria-hidden>
+              <Wallet size={18} />
+            </span>
+            <div className="min-w-0">
+              <p className="font-display text-sm font-bold">Income & Bills</p>
+              <p className="text-xs leading-relaxed text-zinc-300">
+                Payday {fmtDay(cycle.start)} → next payday {fmtDay(cycle.nextPayday)} ·{' '}
+                <b className="text-white">{fmtMonth(ym)}</b>&apos;s money
+              </p>
+            </div>
           </div>
         </div>
       </Card>
@@ -251,16 +250,17 @@ export function MonthlyView({
         </div>
 
         {/* Bills */}
-        <section>
+        <section className="min-w-0">
           <SectionTitle
-            title={`Bills & liabilities · ${fmtMonth(ym)}`}
+            title={`Bills · ${fmtMonth(ym)}`}
+            kicker="Liabilities"
             action={
               canCopy ? (
                 <button
                   onClick={copyFromPrevCycle}
-                  className="inline-flex items-center gap-1 text-sm font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900"
                 >
-                  <CopyPlus size={14} /> Copy previous cycle
+                  <CopyPlus size={14} /> Copy previous
                 </button>
               ) : undefined
             }
@@ -279,28 +279,28 @@ export function MonthlyView({
                     onClick={() => api.setLiabilityPaid(ym, l.id, !l.paid).catch(() => window.alert('Update failed.'))}
                     aria-label={l.paid ? `Mark ${l.name} unpaid` : `Mark ${l.name} paid`}
                     className={cx(
-                      'shrink-0 transition',
+                      'flex size-9 shrink-0 items-center justify-center rounded-full transition',
                       l.paid
-                        ? 'text-emerald-500 hover:text-emerald-600'
-                        : 'text-zinc-300 hover:text-zinc-400 dark:text-zinc-600 dark:hover:text-zinc-400',
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-zinc-900/5 text-zinc-400 hover:bg-zinc-900 hover:text-white dark:bg-white/10 dark:text-zinc-500',
                     )}
                   >
-                    {l.paid ? <CheckCircle2 size={20} /> : <Circle size={20} />}
+                    {l.paid ? <CheckCircle2 size={18} /> : <Circle size={18} />}
                   </button>
                   <div className="min-w-0 flex-1">
                     <p
                       className={cx(
-                        'truncate text-sm font-medium',
+                        'truncate text-sm font-semibold',
                         l.paid && 'text-zinc-400 line-through dark:text-zinc-500',
                       )}
                     >
                       {l.name}
                     </p>
-                    <p className={cx('text-xs', l.paid ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-500 dark:text-zinc-400')}>
-                      {l.paid ? 'Paid' : 'Unpaid'}
+                    <p className={cx('text-xs font-medium', l.paid ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-500 dark:text-zinc-400')}>
+                      {l.paid ? 'Paid ✓' : 'Unpaid'}
                     </p>
                   </div>
-                  <span className="shrink-0 text-sm font-semibold tabular-nums">
+                  <span className="shrink-0 font-display text-sm font-bold tabular-nums">
                     {fmtMoney(l.amount, currency)}
                   </span>
                   <button
@@ -312,23 +312,22 @@ export function MonthlyView({
                       }
                     }}
                     aria-label={`Delete ${l.name}`}
-                    className="shrink-0 rounded-lg p-2 text-zinc-400 transition hover:bg-rose-50 hover:text-rose-600 lg:opacity-0 lg:group-hover:opacity-100 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+                    className="shrink-0 rounded-full bg-zinc-900/5 p-2 text-zinc-400 transition hover:bg-rose-500 hover:text-white lg:opacity-0 lg:group-hover:opacity-100 dark:bg-white/10 dark:hover:bg-rose-500"
                   >
-                    <Trash2 size={15} />
+                    <Trash2 size={14} />
                   </button>
                 </div>
               ))
             )}
             {monthItems.length > 0 && (
-              <div className="flex items-center gap-3 bg-zinc-50/60 px-4 py-3 text-xs dark:bg-zinc-800/40">
-                <span className="inline-flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
-                  <Banknote size={14} /> Total{' '}
-                  <b className="tabular-nums">{fmtMoney(plan.billsTotal, currency)}</b>
+              <div className="flex flex-wrap items-center gap-2 bg-zinc-900 px-4 py-3 text-xs text-white dark:bg-zinc-800">
+                <span className="inline-flex items-center gap-1.5">
+                  <Banknote size={14} /> Total <b className="tabular-nums">{fmtMoney(plan.billsTotal, currency)}</b>
                 </span>
-                <span className="ml-auto inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                <span className="ml-auto inline-flex items-center gap-1.5 text-emerald-300">
                   <ArrowDownLeft size={14} /> Paid <b className="tabular-nums">{fmtMoney(plan.paidTotal, currency)}</b>
                 </span>
-                <span className="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                <span className="inline-flex items-center gap-1.5 text-amber-300">
                   Unpaid <b className="tabular-nums">{fmtMoney(plan.unpaidTotal, currency)}</b>
                 </span>
               </div>
@@ -337,11 +336,11 @@ export function MonthlyView({
 
           <Card className="mt-4 p-4 sm:p-5">
             <form onSubmit={addItem} className="space-y-3">
-              <div className="grid gap-3 sm:grid-cols-[1fr_130px]">
+              <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
                 <Field label="Bill name">
                   <Input
                     type="text"
-                    placeholder="e.g. Power bill, Insurance, Loan"
+                    placeholder="e.g. Power bill, Insurance"
                     maxLength={60}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -353,14 +352,14 @@ export function MonthlyView({
                     type="number"
                     step="any"
                     min="0"
-                    placeholder="0"
+                    placeholder="0.00"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                   />
                 </Field>
               </div>
-              {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
-              <Button type="submit" variant="subtle" className="w-full sm:w-auto">
+              {error && <p className="rounded-2xl bg-rose-500 px-3.5 py-2.5 text-sm font-medium text-white">{error}</p>}
+              <Button type="submit" variant="accent" className="w-full sm:w-auto">
                 <Plus size={16} /> Add bill
               </Button>
             </form>

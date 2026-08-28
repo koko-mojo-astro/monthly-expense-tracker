@@ -138,24 +138,22 @@ export function TransactionsView({ cycle }: { cycle: Cycle }) {
     <div className="space-y-5">
       {/* Add expense */}
       <section>
-        <SectionTitle title="Log an expense" />
+        <SectionTitle title="Log an expense" kicker="Quick add" />
         <Card className="p-4 sm:p-5">
           <form onSubmit={handleAdd} className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Amount">
-                <div className="relative">
-                  <Input
-                    inputMode="decimal"
-                    type="number"
-                    step="any"
-                    min="0"
-                    placeholder="0"
-                    value={form.amount}
-                    onChange={(e) => set('amount', e.target.value)}
-                    required
-                    autoFocus
-                  />
-                </div>
+                <Input
+                  inputMode="decimal"
+                  type="number"
+                  step="any"
+                  min="0"
+                  placeholder="0.00"
+                  value={form.amount}
+                  onChange={(e) => set('amount', e.target.value)}
+                  required
+                  autoFocus
+                />
               </Field>
               <Field label="Category">
                 <Select value={form.category} onChange={(e) => set('category', e.target.value)}>
@@ -181,8 +179,8 @@ export function TransactionsView({ cycle }: { cycle: Cycle }) {
                 />
               </Field>
             </div>
-            {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
-            <Button type="submit" disabled={saving} className="w-full sm:w-auto">
+            {error && <p className="rounded-2xl bg-rose-500 px-3.5 py-2.5 text-sm font-medium text-white">{error}</p>}
+            <Button type="submit" disabled={saving} variant="accent" className="w-full sm:w-auto">
               <Plus size={16} /> Add expense
             </Button>
           </form>
@@ -191,53 +189,53 @@ export function TransactionsView({ cycle }: { cycle: Cycle }) {
 
       {/* Month list */}
       <section>
-        <SectionTitle
-          title={
-            scope === 'month'
-              ? `Expenses · ${fmtMonth(ym)}`
-              : `Expenses · pay cycle ${fmtDayShort(cycle.start)} → ${fmtDayShort(cycle.nextPayday)}`
-          }
-          action={
-            <div className="flex items-center gap-3">
-              <div className="flex items-center rounded-lg border border-zinc-200 p-0.5 text-xs dark:border-zinc-800">
-                {(['month', 'cycle'] as const).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setScope(s)}
-                    className={cx(
-                      'rounded-md px-2.5 py-1 font-medium transition',
-                      scope === s
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50',
-                    )}
-                  >
-                    {s === 'month' ? 'Month' : 'Pay cycle'}
-                  </button>
-                ))}
-              </div>
-              <span className="text-sm font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">
-                Total: {fmtMoney(total, currency)}
-              </span>
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[10px] font-bold tracking-[0.14em] text-violet-600 uppercase dark:text-violet-400">History</p>
+            <h2 className="font-display text-[13px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+              {scope === 'month'
+                ? `Expenses · ${fmtMonth(ym)}`
+                : `Pay cycle ${fmtDayShort(cycle.start)} → ${fmtDayShort(cycle.nextPayday)}`}
+            </h2>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center rounded-full border border-zinc-900/10 bg-zinc-900/[0.04] p-1 dark:border-white/10 dark:bg-white/5">
+              {(['cycle', 'month'] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setScope(s)}
+                  className={cx(
+                    'rounded-full px-3.5 py-1.5 text-xs font-bold transition',
+                    scope === s
+                      ? 'bg-[#0B0D14] text-white shadow-sm dark:bg-white dark:text-zinc-900'
+                      : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white',
+                  )}
+                >
+                  {s === 'month' ? 'Month' : 'Pay cycle'}
+                </button>
+              ))}
             </div>
-          }
-        />
+            <span className="rounded-full bg-violet-600 px-3 py-1.5 text-xs font-bold text-white">
+              {fmtMoney(total, currency)}
+            </span>
+          </div>
+        </div>
 
         {scope === 'cycle' && envelopeBudget > 0 && (
-          <p
+          <div
             className={cx(
-              '-mt-1 mb-3 text-xs',
+              'mb-3 rounded-2xl border px-3.5 py-2.5 text-xs font-medium leading-relaxed',
               envelopeLeft < 0
-                ? 'text-rose-600 dark:text-rose-400'
-                : 'text-zinc-500 dark:text-zinc-400',
+                ? 'border-rose-200 bg-rose-500 text-white dark:border-rose-800'
+                : 'border-zinc-900/10 bg-zinc-900/[0.04] text-zinc-600 dark:border-white/10 dark:bg-white/5 dark:text-zinc-400',
             )}
           >
-            Daily set-aside: {fmtMoney(envelopeSpent, currency)} of{' '}
-            {fmtMoney(envelopeBudget, currency)} used —{' '}
+            Daily set-aside: {fmtMoney(envelopeSpent, currency)} of {fmtMoney(envelopeBudget, currency)} used —{' '}
             {envelopeLeft >= 0
               ? `${fmtMoney(envelopeLeft, currency)} left`
               : `${fmtMoney(-envelopeLeft, currency)} over`}
-            . Daily expenses draw from the set-aside before touching flexible money.
-          </p>
+            .
+          </div>
         )}
 
         {scopedExpenses.length === 0 ? (
@@ -249,19 +247,14 @@ export function TransactionsView({ cycle }: { cycle: Cycle }) {
             />
           </Card>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {[...groups.entries()].map(([date, group]) => (
-              <Card key={date}>
-                <div
-                  className={cx(
-                    'flex items-center justify-between border-b border-zinc-100 px-4 py-2.5',
-                    'dark:border-zinc-800',
-                  )}
-                >
-                  <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+              <Card key={date} className="overflow-hidden">
+                <div className="flex items-center justify-between bg-zinc-900 px-4 py-2.5 dark:bg-zinc-800">
+                  <span className="text-xs font-bold tracking-wide text-white">
                     {fmtDay(date)}
                   </span>
-                  <span className="text-xs font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">
+                  <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs font-bold tabular-nums text-white">
                     {fmtMoney(group.total, currency)}
                   </span>
                 </div>
@@ -320,12 +313,12 @@ export function TransactionsView({ cycle }: { cycle: Cycle }) {
               />
             </Field>
           </div>
-          {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
+          {error && <p className="rounded-2xl bg-rose-500 px-3.5 py-2.5 text-sm font-medium text-white">{error}</p>}
           <div className="flex gap-2 pt-1">
             <Button type="button" variant="subtle" className="flex-1" onClick={() => setEditing(null)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving} className="flex-1">
+            <Button type="submit" disabled={saving} variant="accent" className="flex-1">
               Save changes
             </Button>
           </div>
