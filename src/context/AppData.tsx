@@ -2,7 +2,7 @@ import { createContext, useContext, type ReactNode } from 'react'
 import { useAuth } from './AuthContext'
 import { useDbValue } from '../hooks/useDbValue'
 import { createDbApi, type DbApi } from '../lib/db'
-import type { Expense, Goal, IncomesMap, LiabilitiesMap, Settings } from '../lib/types'
+import type { Expense, Goal, IncomesMap, LiabilitiesMap, Settings, TransfersMap } from '../lib/types'
 
 export interface AppData {
   /** 'denied' means the database rules block reads/writes. */
@@ -14,6 +14,7 @@ export interface AppData {
   goal: Goal | null
   currency: string
   settings: Settings
+  transfers: TransfersMap
   api: DbApi
 }
 
@@ -32,6 +33,7 @@ const AppDataContext = createContext<AppData>({
   goal: null,
   currency: FALLBACK_CURRENCY,
   settings: EMPTY_SETTINGS,
+  transfers: {},
   api: {
     addExpense: () => Promise.resolve(null),
     updateExpense: noop,
@@ -44,6 +46,8 @@ const AppDataContext = createContext<AppData>({
     saveSettings: noop,
     saveCurrency: noop,
     wipeAll: noop,
+    transferCycleToGoal: noop,
+    undoCycleTransfer: noop,
   },
 })
 
@@ -66,8 +70,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const liabilitiesQ = useDbValue<LiabilitiesMap>(uid ? `users/${uid}/liabilities` : '__signed_out__')
   const goalQ = useDbValue<Goal>(uid ? `users/${uid}/goal/current` : '__signed_out__')
   const settingsQ = useDbValue<Settings>(uid ? `users/${uid}/settings` : '__signed_out__')
+  const transfersQ = useDbValue<TransfersMap>(uid ? `users/${uid}/transfers` : '__signed_out__')
 
-  const queries = [expensesQ, incomesQ, liabilitiesQ, goalQ, settingsQ]
+  const liabilitiesData = liabilitiesQ.data ?? {}
+
+  const queries = [expensesQ, incomesQ, liabilitiesQ, goalQ, settingsQ, transfersQ]
   const denied = queries.some((q) => q.error?.includes('permission'))
   const loading = !uid || queries.some((q) => q.loading)
 
@@ -76,10 +83,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     loading,
     expenses: toExpenses(expensesQ.data),
     incomes: incomesQ.data ?? {},
-    liabilities: liabilitiesQ.data ?? {},
+    liabilities: liabilitiesData,
     goal: goalQ.data,
     currency: settingsQ.data?.currency ?? FALLBACK_CURRENCY,
     settings: settingsQ.data ?? EMPTY_SETTINGS,
+    transfers: transfersQ.data ?? {},
     api: createDbApi(uid || 'anonymous'),
   }
 

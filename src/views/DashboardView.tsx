@@ -8,6 +8,7 @@ import {
   PiggyBank,
   ReceiptText,
   Target,
+  Sparkles,
 } from 'lucide-react'
 import { useAppData } from '../context/AppData'
 import { ExpenseRow } from '../components/ExpenseRow'
@@ -33,14 +34,14 @@ function Delta({ value, invert }: { value: number | null; invert?: boolean }) {
   return (
     <span
       className={cx(
-        'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold',
+        'inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold',
         good
-          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-          : 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+          ? 'bg-emerald-500 text-white'
+          : 'bg-rose-500 text-white',
       )}
     >
       {up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-      {Math.abs(Math.round(value))}% vs last month
+      {Math.abs(Math.round(value))}%
     </span>
   )
 }
@@ -56,7 +57,6 @@ function StatCard({
   icon: Icon,
   tone,
   delta,
-  invertDelta,
   subtitle,
 }: {
   label: string
@@ -64,26 +64,19 @@ function StatCard({
   icon: typeof ReceiptText
   tone: string
   delta?: number | null
-  invertDelta?: boolean
   subtitle?: string
 }) {
   return (
     <Card className="p-4">
-      <div className="flex items-center gap-3">
-        <span className={cx('flex size-9 items-center justify-center rounded-xl', tone)} aria-hidden>
-          <Icon size={17} />
+      <div className="flex items-start justify-between gap-3">
+        <span className={cx('flex size-10 items-center justify-center rounded-2xl', tone)} aria-hidden>
+          <Icon size={18} />
         </span>
-        <div className="min-w-0">
-          <p className="truncate text-xs font-medium text-zinc-500 dark:text-zinc-400">{label}</p>
-          <p className="truncate text-lg font-bold tabular-nums">{value}</p>
-          {subtitle && <p className="truncate text-[11px] text-zinc-400">{subtitle}</p>}
-        </div>
+        {delta != null && <Delta value={delta} />}
       </div>
-      {(delta != null) && (
-        <div className="mt-2.5">
-          <Delta value={delta} invert={invertDelta} />
-        </div>
-      )}
+      <p className="mt-3 text-[11px] font-bold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">{label}</p>
+      <p className="font-display text-[20px] font-bold tracking-tight tabular-nums sm:text-[22px]">{value}</p>
+      {subtitle && <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">{subtitle}</p>}
     </Card>
   )
 }
@@ -94,96 +87,89 @@ function CycleCard({ cycle, onNavigate }: { cycle: Cycle; onNavigate: (v: ViewId
   const plan = computeCyclePlan(cycle, settings, incomes, liabilities, expenses, today)
 
   const badge = plan.isFuture
-    ? { label: 'Upcoming', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' }
+    ? { label: 'Upcoming', cls: 'bg-[#C6FF00] text-[#0B0D14]' }
     : plan.isPast
-      ? { label: 'Past', cls: 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-300' }
-      : { label: 'Current', cls: 'bg-teal-500/15 text-teal-700 dark:text-teal-400' }
+      ? { label: 'Past', cls: 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' }
+      : { label: 'Live now', cls: 'bg-violet-600 text-white' }
 
   const committedPct = plan.income > 0 ? (plan.committed / plan.income) * 100 : 0
 
   return (
-    <Card className="p-4 sm:p-5">
-      <div className="flex flex-wrap items-center gap-2.5">
-        <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" aria-hidden>
-          <CalendarCheck2 size={18} />
-        </span>
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold">Pay cycle</p>
-            <span className={cx('rounded-full px-2 py-0.5 text-[11px] font-semibold', badge.cls)}>
-              {badge.label}
+    <Card className="overflow-hidden">
+      <div className="bg-[#0B0D14] p-4 text-white sm:p-5 dark:bg-zinc-900">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex gap-3">
+            <span className="flex size-10 items-center justify-center rounded-2xl bg-white/10 backdrop-blur" aria-hidden>
+              <CalendarCheck2 size={18} />
             </span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-display text-sm font-bold">Pay cycle</p>
+                <span className={cx('rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide uppercase', badge.cls)}>
+                  {badge.label}
+                </span>
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-zinc-300">
+                {fmtDay(plan.cycle.start)} → {fmtDay(plan.cycle.nextPayday)} · funds{' '}
+                <b className="text-white">{fmtMonth(plan.fundedYm)}</b>
+                {plan.isCurrent && plan.daysToNextPayday >= 0 && (
+                  <> · payday in {plan.daysToNextPayday} {plan.daysToNextPayday === 1 ? 'day' : 'days'}</>
+                )}
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            {fmtDay(plan.cycle.start)} → {fmtDay(plan.cycle.nextPayday)} · funds{' '}
-            <b>{fmtMonth(plan.fundedYm)}</b>
-            {plan.isCurrent && plan.daysToNextPayday >= 0 && (
-              <>
-                {' '}
-                · payday in {plan.daysToNextPayday}{' '}
-                {plan.daysToNextPayday === 1 ? 'day' : 'days'}
-              </>
-            )}
-          </p>
+          <Button variant="subtle" onClick={() => onNavigate('planner')} className="shrink-0 !bg-white !text-zinc-900 hover:!bg-zinc-100">
+            Open planner
+          </Button>
         </div>
-        <Button variant="subtle" onClick={() => onNavigate('planner')} className="ml-auto shrink-0">
-          Open planner
-        </Button>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+      <div className="grid grid-cols-2 gap-3 p-4 sm:p-5 lg:grid-cols-4">
+        <div className="rounded-2xl bg-zinc-900/[0.04] p-3 dark:bg-white/5">
+          <p className="text-[11px] font-bold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
             Income · {fmtMonth(plan.fundedYm)}
           </p>
-          <p className="text-sm font-bold tabular-nums sm:text-base">
+          <p className="mt-1 font-display text-sm font-bold tabular-nums sm:text-[15px]">
             {fmtMoney(plan.income, currency)}
           </p>
         </div>
-        <div>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Committed (rent+bills+food)</p>
-          <p className="text-sm font-bold tabular-nums sm:text-base">
+        <div className="rounded-2xl bg-zinc-900/[0.04] p-3 dark:bg-white/5">
+          <p className="text-[11px] font-bold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">Committed</p>
+          <p className="mt-1 font-display text-sm font-bold tabular-nums sm:text-[15px]">
             {fmtMoney(plan.committed, currency)}
           </p>
+          <p className="text-[11px] text-zinc-500">rent + bills + set-aside</p>
         </div>
-        <div>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Set-aside used</p>
-          <p className="text-sm font-bold tabular-nums sm:text-base">
+        <div className="rounded-2xl bg-zinc-900/[0.04] p-3 dark:bg-white/5">
+          <p className="text-[11px] font-bold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">Set-aside used</p>
+          <p className="mt-1 font-display text-sm font-bold tabular-nums sm:text-[15px]">
             {fmtMoney(plan.envelopeSpent, currency)}
           </p>
           {plan.envelopeRemaining != null && (
-            <p
-              className={cx(
-                'text-[11px]',
-                plan.envelopeRemaining < 0
-                  ? 'text-rose-600 dark:text-rose-400'
-                  : 'text-zinc-400',
-              )}
-            >
+            <p className={cx('text-[11px] font-medium', plan.envelopeRemaining < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-500')}>
               {plan.envelopeRemaining >= 0
                 ? `${fmtMoney(plan.envelopeRemaining, currency)} left`
                 : `${fmtMoney(-plan.envelopeRemaining, currency)} over`}
             </p>
           )}
         </div>
-        <div>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+        <div className="rounded-2xl bg-violet-600 p-3 text-white">
+          <p className="text-[11px] font-bold tracking-wide text-violet-100 uppercase">
             {plan.isPast ? 'Ended with' : 'Flexible left'}
           </p>
-          <p
-            className={cx(
-              'text-sm font-bold tabular-nums sm:text-base',
-              plan.available < 0
-                ? 'text-rose-600 dark:text-rose-400'
-                : 'text-emerald-600 dark:text-emerald-400',
-            )}
-          >
+          <p className="mt-1 font-display text-sm font-bold tabular-nums sm:text-[15px]">
             {fmtMoney(plan.available, currency)}
           </p>
+          <p className="text-[11px] text-violet-100">{plan.isPast ? 'final balance' : 'to save or spend'}</p>
         </div>
       </div>
 
-      <ProgressBar value={committedPct} className="mt-3 h-1.5" />
+      <div className="px-4 pb-4 sm:px-5">
+        <ProgressBar value={committedPct} className="h-2" />
+        <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+          {plan.income > 0 ? `${Math.round(committedPct)}% of income committed` : 'Add income to see commitment'}
+        </p>
+      </div>
     </Card>
   )
 }
@@ -248,10 +234,10 @@ export function DashboardView({
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-[86px]" />
+            <Skeleton key={i} className="h-[110px]" />
           ))}
         </div>
-        <Skeleton className="h-36" />
+        <Skeleton className="h-44" />
         <div className="grid gap-4 lg:grid-cols-2">
           <Skeleton className="h-72" />
           <Skeleton className="h-72" />
@@ -267,13 +253,13 @@ export function DashboardView({
 
       {/* Overview — identical to the Planner's numbers */}
       <section>
-        <SectionTitle title={`Cycle overview · funds ${fmtMonth(ym)}`} />
+        <SectionTitle title={`Cycle overview · ${fmtMonth(ym)}`} kicker="At a glance" />
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           <StatCard
             label="Income"
             value={fmtMoney(plan.income, currency)}
             icon={BanknoteArrowUp}
-            tone="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+            tone="bg-emerald-500 text-white"
             subtitle={fmtMonth(ym)}
             delta={pctChange(plan.income, prevPlan.income)}
           />
@@ -281,7 +267,7 @@ export function DashboardView({
             label="Daily spending"
             value={fmtMoney(plan.envelopeSpent, currency)}
             icon={BanknoteArrowDown}
-            tone="bg-rose-500/10 text-rose-600 dark:text-rose-400"
+            tone="bg-violet-600 text-white"
             subtitle={
               plan.envelopeRemaining == null
                 ? 'no set-aside set'
@@ -294,12 +280,12 @@ export function DashboardView({
             label="Bills"
             value={fmtMoney(plan.billsTotal, currency)}
             icon={CalendarX2}
-            tone="bg-amber-500/10 text-amber-600 dark:text-amber-400"
+            tone="bg-amber-500 text-white"
             subtitle={
               plan.unpaidBills.length > 0
                 ? `${fmtMoney(plan.unpaidTotal, currency)} to pay`
                 : plan.allBills.length > 0
-                  ? 'All paid'
+                  ? 'All paid ✓'
                   : 'None tracked'
             }
           />
@@ -309,68 +295,72 @@ export function DashboardView({
             icon={PiggyBank}
             tone={
               plan.available >= 0
-                ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400'
-                : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                ? 'bg-[#C6FF00] text-[#0B0D14]'
+                : 'bg-rose-500 text-white'
             }
             subtitle={
               plan.isCurrent && plan.daysLeftInCycle > 0 && plan.available > 0
                 ? `≈ ${fmtMoney(plan.available / plan.daysLeftInCycle, currency)}/day · ${plan.daysLeftInCycle} days left`
-                : undefined
+                : plan.available < 0 ? 'Over-committed' : 'Available to save'
             }
           />
         </div>
       </section>
 
       {/* Goal card */}
-      <Card className="overflow-hidden p-4 sm:p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400" aria-hidden>
-              <Target size={17} />
-            </span>
-            <div>
-              <p className="text-sm font-semibold">{goal?.title?.trim() || 'Savings Goal'}</p>
-              {goal ? (
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {fmtMoney(goal.savedAmount, currency)} saved of{' '}
-                  {fmtMoney(goal.targetAmount, currency)}
-                </p>
-              ) : (
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">No goal set yet</p>
-              )}
+      <Card className="overflow-hidden">
+        <div className="bg-gradient-to-br from-violet-600 to-[#5B21B6] p-4 text-white sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex gap-3">
+              <span className="flex size-10 items-center justify-center rounded-2xl bg-white/15 backdrop-blur" aria-hidden>
+                <Target size={18} />
+              </span>
+              <div>
+                <p className="font-display text-sm font-bold">{goal?.title?.trim() || 'Savings Goal'}</p>
+                {goal ? (
+                  <p className="text-xs text-violet-100">
+                    {fmtMoney(goal.savedAmount, currency)} of {fmtMoney(goal.targetAmount, currency)} · {progress.toFixed(0)}%
+                  </p>
+                ) : (
+                  <p className="text-xs text-violet-100">No goal set yet</p>
+                )}
+              </div>
             </div>
+            <Button variant="subtle" onClick={() => onNavigate('goal')} className="!bg-white !text-violet-700 hover:!bg-violet-50">
+              {goal ? 'Manage' : 'Set a goal'}
+              <Sparkles size={14} />
+            </Button>
           </div>
-          <Button variant="subtle" onClick={() => onNavigate('goal')}>
-            {goal ? 'Manage' : 'Set a goal'}
-          </Button>
-        </div>
-
-        {goal ? (
-          <div className="mt-4 space-y-3">
-            <ProgressBar value={progress} />
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              {projection?.kind === 'achieved' && '🎉 Goal reached — great work!'}
-              {projection?.kind === 'on-track' &&
-                `At your average pace you'll reach this in about ${projection.monthsNeeded} ${projection.monthsNeeded === 1 ? 'month' : 'months'} (${fmtMonth(projection.projectedYm)}).`}
-              {projection?.kind === 'stalled' &&
-                'No monthly surplus yet — increase income or cut spending to make progress.'}
+          {goal && (
+            <div className="mt-4">
+              <div className="h-2 overflow-hidden rounded-full bg-white/20">
+                <div className="h-full rounded-full bg-[#C6FF00] transition-[width] duration-700" style={{ width: `${progress}%` }} />
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-violet-100">
+                {projection?.kind === 'achieved' && '🎉 Goal reached — great work!'}
+                {projection?.kind === 'on-track' &&
+                  `At your pace you'll reach this in ~${projection.monthsNeeded} ${projection.monthsNeeded === 1 ? 'month' : 'months'} (${fmtMonth(projection.projectedYm)}).`}
+                {projection?.kind === 'stalled' &&
+                  'No surplus yet — increase income or trim spending to make progress.'}
+              </p>
+            </div>
+          )}
+          {!goal && (
+            <p className="mt-3 text-xs leading-relaxed text-violet-100">
+              Set a target and we&apos;ll estimate how many pay cycles it will take.
             </p>
-          </div>
-        ) : (
-          <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-            Set a target and the app will estimate how many months of saving it will take.
-          </p>
-        )}
+          )}
+        </div>
       </Card>
 
       {/* Charts */}
       <section className="grid gap-4 lg:grid-cols-2">
         <Card className="p-4 sm:p-5">
-          <SectionTitle title="Where money went" />
+          <SectionTitle title="Where money went" kicker="Breakdown" />
           {loading ? <Skeleton className="h-48" /> : <CategoryDonut totals={catTotals} currency={currency} dark={theme === 'dark'} />}
         </Card>
         <Card className="p-4 sm:p-5">
-          <SectionTitle title="Last 6 pay cycles" />
+          <SectionTitle title="Last 6 pay cycles" kicker="Trend" />
           {loading ? (
             <Skeleton className="h-64" />
           ) : (
@@ -390,11 +380,12 @@ export function DashboardView({
       <section>
         <SectionTitle
           title="Recent transactions"
+          kicker="This cycle"
           action={
             cycleExpenses.length > 5 ? (
               <button
                 onClick={() => onNavigate('transactions')}
-                className="text-sm font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+                className="rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900"
               >
                 View all
               </button>
@@ -407,7 +398,7 @@ export function DashboardView({
               icon={<ReceiptText size={22} />}
               title="Nothing logged yet this cycle"
               subtitle="Daily expenses will appear here as soon as you add them."
-              action={<Button variant="subtle" onClick={() => onNavigate('transactions')}>Log an expense</Button>}
+              action={<Button variant="accent" onClick={() => onNavigate('transactions')}>Log an expense</Button>}
             />
           ) : (
             <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">

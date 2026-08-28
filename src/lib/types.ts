@@ -35,6 +35,18 @@ export interface Goal {
   updatedAt?: number
 }
 
+export interface Transfer {
+  /** Cycle start YYYY-MM-DD that was closed. */
+  cycleStart: string
+  fundedYm: string
+  amount: number
+  createdAt: number
+  goalTitle?: string
+}
+
+/** transfers[cycleStart] — one entry per pay cycle, at most once */
+export type TransfersMap = Record<string, Transfer>
+
 export interface Settings {
   currency?: string
   /** Day of month the salary lands (1–28). The pay cycle starts on this day. */
