@@ -1,0 +1,29 @@
+previews:
+  generation: automatic
+  expireAfterDays: 7
+
+services:
+  - type: web
+    name: mojo-money
+    runtime: static
+    branch: main
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+    # SPA fallback — all routes serve index.html (Render rewrites)
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    # Service-level PR previews — mirrors dashboard "Automatic" but kept in IaC so it never drifts
+    previews:
+      generation: automatic
