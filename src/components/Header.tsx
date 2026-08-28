@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, LogOut, Menu, Moon, Settings, Sun, Wallet, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LogOut, Moon, Settings, Sun, Wallet, X } from 'lucide-react'
 import type { User } from 'firebase/auth'
 import { cx, fmtDayShort } from '../lib/format'
 import type { Cycle } from '../lib/stats'
@@ -44,7 +44,6 @@ export function Header({
   onOpenSettings,
   user,
   onSignOut,
-  onOpenNav,
 }: {
   cycle: Cycle
   cycleState: CycleState
@@ -58,7 +57,6 @@ export function Header({
   onOpenSettings: () => void
   user: User
   onSignOut: () => void
-  onOpenNav?: () => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const displayName = user.displayName || user.email || 'Account'
@@ -68,15 +66,6 @@ export function Header({
     <header className="sticky top-0 z-40 border-b border-zinc-900/5 bg-[#FFFBF0]/80 backdrop-blur-xl supports-[backdrop-filter]:bg-[#FFFBF0]/70 dark:border-white/5 dark:bg-[#080A12]/80">
       {/* Top row */}
       <div className="mx-auto flex h-[56px] max-w-[1280px] items-center gap-2 px-3 sm:gap-3 sm:px-4 lg:px-6">
-        {/* Mobile menu trigger */}
-        <button
-          onClick={onOpenNav}
-          aria-label="Open navigation"
-          className="inline-flex size-9 items-center justify-center rounded-full bg-zinc-900 text-white lg:hidden dark:bg-white dark:text-zinc-900"
-        >
-          <Menu size={16} />
-        </button>
-
         <div className="flex items-center gap-2.5">
           <span className="flex size-9 items-center justify-center rounded-[12px] bg-[#0B0D14] text-[#C6FF00] shadow-sm dark:bg-white dark:text-zinc-900">
             <Wallet size={17} strokeWidth={2.2} />

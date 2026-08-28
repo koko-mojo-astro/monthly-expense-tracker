@@ -6,7 +6,7 @@ import { AppDataProvider, useAppData } from './context/AppData'
 import { useTheme } from './hooks/useTheme'
 import { Header, cycleStateOf } from './components/Header'
 import { AuthScreen } from './components/AuthScreen'
-import { BottomNav, MobileDrawer, Sidebar, type ViewId } from './components/Nav'
+import { BottomNav, Sidebar, type ViewId } from './components/Nav'
 import { SettingsModal } from './components/SettingsModal'
 import { DashboardView } from './views/DashboardView'
 import { PlannerView } from './views/PlannerView'
@@ -105,7 +105,6 @@ function AppShell({
 
   // null = follow the smart default (upcoming cycle when payday is near)
   const [cycleStart, setCycleStart] = useState<string | null>(null)
-  const [drawerOpen, setDrawerOpen] = useState(false)
 
   const cycle: Cycle = useMemo(() => {
     if (!cycleStart) return defaultCycle(pd, today)
@@ -135,7 +134,6 @@ function AppShell({
         theme={theme}
         toggleTheme={toggleTheme}
         onOpenSettings={() => setSettingsOpen(true)}
-        onOpenNav={() => setDrawerOpen(true)}
         user={user}
         onSignOut={onSignOut}
       />
@@ -150,7 +148,6 @@ function AppShell({
           {view === 'goal' && <GoalView />}
         </main>
       </div>
-      <MobileDrawer open={drawerOpen} active={view} onSelect={setView} onClose={() => setDrawerOpen(false)} />
       <BottomNav active={view} onSelect={setView} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
